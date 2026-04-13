@@ -1,0 +1,36 @@
+
+# (OS Files)
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+
+# IDE & Editors (VS Code, Visual Studio)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vs/
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Global Node & .NET Safety Net
+node_modules/
+npm-debug.log
+yarn-error.log
+bin/
+obj/
