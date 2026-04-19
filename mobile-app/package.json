@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "dotenv -e ../.env -- expo start",
+    "android": "dotenv -e ../.env -- expo start --android",
+    "ios": "dotenv -e ../.env -- expo start --ios",
+    "web": "dotenv -e ../.env -- expo start --web"
   },
   "dependencies": {
     "@react-navigation/native": "^7.2.2",
@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "dotenv-cli": "^11.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
