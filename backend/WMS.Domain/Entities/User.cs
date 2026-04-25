@@ -4,7 +4,9 @@ namespace WMS.Domain.Entities;
         public Guid Id { get; set; }
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
-        public string Role { get; set; } = "Staff"; // Chứa các giá trị: Admin, QA_QC, Staff
+
+        public Guid RoleId { get; set;}
+        public Role? Role { get; set; }
         
         // Nullable vì Admin quản lý tổng, không thuộc kho nào cụ thể
         public Guid? WarehouseId { get; set; } 

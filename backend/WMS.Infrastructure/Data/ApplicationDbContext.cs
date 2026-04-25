@@ -16,7 +16,12 @@
         public DbSet<ReceiptDetail> ReceiptDetails { get; set; }
         public DbSet<Issue> Issues { get; set; }
         public DbSet<IssueDetail> IssueDetails { get; set; }
-
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

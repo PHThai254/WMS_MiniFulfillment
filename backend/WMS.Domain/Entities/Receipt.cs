@@ -7,5 +7,9 @@ using WMS.Domain.Enums;
         public ReceiptStatus Status { get; set; }
         
         public Warehouse? Warehouse { get; set; }
+
+        public Guid? SupplierId { get; set; }
+        public Supplier? Supplier { get; set; }
         public ICollection<ReceiptDetail> ReceiptDetails { get; set; } = new List<ReceiptDetail>();
+
     }

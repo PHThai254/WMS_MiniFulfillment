@@ -7,5 +7,8 @@ using WMS.Domain.Enums;
         public IssueStatus Status { get; set; }
         
         public Warehouse? Warehouse { get; set; }
+
+        public Guid? CustomerId { get; set; }
+        public Customer? Customer { get; set; }
         public ICollection<IssueDetail> IssueDetails { get; set; } = new List<IssueDetail>();
     }
