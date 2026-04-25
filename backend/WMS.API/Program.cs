@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using WMS.Infrastructure.Data;
 using WMS.API.Middlewares;
+using WMS.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext> (options =>
         options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddApplicationServices();
 
 var app = builder.Build();
 
