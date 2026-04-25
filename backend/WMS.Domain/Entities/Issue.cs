@@ -4,7 +4,7 @@ using WMS.Domain.Enums;
         public Guid Id { get; set; }
         public Guid WarehouseId { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
-        public IssueStatus Status { get; set; }
+        public IssueStatus Status { get; set; } = IssueStatus.Pending;
         
         public Warehouse? Warehouse { get; set; }
 

@@ -1,0 +1,43 @@
+namespace WMS.Application.Wrappers;
+
+public class ApiResponse<T>
+{
+    public bool Success { get; set; }
+    
+    public string Message { get; set; } = string.Empty; 
+    
+    public T? Data { get; set; }
+    
+    public List<string>? Errors { get; set; } 
+
+    // Constructor mặc định cho System.Text.Json serialize
+    public ApiResponse() { }
+
+    public ApiResponse(T data, string message = "")
+    {
+        Success = true;
+        Message = message;
+        Data = data;
+    }
+
+    public ApiResponse(string message)
+    {
+        Success = false;
+        Message = message;
+    }
+
+    public static ApiResponse<T> Succeeded(T data, string message = "Thành công")
+    {
+        return new ApiResponse<T>(data, message);
+    }
+
+    public static ApiResponse<T> Failed(string message, List<string>? errors = null)
+    {
+        return new ApiResponse<T>
+        {
+            Success = false,
+            Message = message,
+            Errors = errors
+        };
+    }
+}

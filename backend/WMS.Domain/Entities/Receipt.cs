@@ -4,7 +4,7 @@ using WMS.Domain.Enums;
         public Guid Id { get; set; }
         public Guid WarehouseId { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
-        public ReceiptStatus Status { get; set; }
+        public ReceiptStatus Status { get; set; } = ReceiptStatus.Draft;
         
         public Warehouse? Warehouse { get; set; }
 
