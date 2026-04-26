@@ -44,4 +44,19 @@ public class AuthController : ControllerBase
         // Trả về response theo chuẩn ApiResponse
         return Ok(ApiResponse<object>.Succeeded(result, "Đăng nhập thành công"));
     }
+
+    /// <summary>
+    /// Endpoint làm mới token: Nhận Refresh Token cũ, trả về cặp token mới.
+    /// </summary>
+    /// <param name="request">RefreshTokenRequest chứa AccessToken cũ và RefreshToken</param>
+    /// <returns>ApiResponse chứa AccessToken mới và RefreshToken mới</returns>
+    [HttpPost("refresh-token")]
+    public async Task<ActionResult<ApiResponse<object>>> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        // Gọi hàm RefreshTokenAsync từ AuthService
+        var (accessToken, refreshToken) = await _authService.RefreshTokenAsync(request.AccessToken, request.RefreshToken);
+
+        // Trả về response theo chuẩn ApiResponse
+        return Ok(ApiResponse<object>.Succeeded(new { AccessToken = accessToken, RefreshToken = refreshToken }, "Làm mới token thành công"));
+    }
 }

@@ -20,4 +20,11 @@ public interface IUserRepository
     /// </summary>
     /// <param name="user">Người dùng cần cập nhật</param>
     Task UpdateAsync(User user);
+
+    /// <summary>
+    /// Tìm user theo Refresh Token.
+    /// </summary>
+    /// <param name="refreshToken">Refresh Token</param>
+    /// <returns>User object nếu tìm thấy, hoặc null nếu không tìm thấy</returns>
+    Task<User?> GetByRefreshTokenAsync(string refreshToken);
 }

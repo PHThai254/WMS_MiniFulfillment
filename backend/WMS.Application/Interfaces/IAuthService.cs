@@ -15,4 +15,5 @@ public interface IAuthService
     /// <returns>Cặp (AccessToken, RefreshToken) dùng cho client</returns>
     Task<(string AccessToken, string RefreshToken)> GenerateTokensAsync(User user);
     Task<(string AccessToken, string RefreshToken)> LoginAsync(string username, string password);
+    Task<(string AccessToken, string RefreshToken)> RefreshTokenAsync(string accessToken, string refreshToken);
 }

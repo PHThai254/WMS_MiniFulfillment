@@ -38,4 +38,16 @@ public class UserRepository : IUserRepository
         _dbContext.Users.Update(user);
         await _dbContext.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// Tìm user theo Refresh Token, bao gồm thông tin Role.
+    /// </summary>
+    /// <param name="refreshToken">Refresh Token</param>
+    /// <returns>User object với Role đã được load, hoặc null nếu không tìm thấy</returns>
+    public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
+    {
+        return await _dbContext.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+    }
 }

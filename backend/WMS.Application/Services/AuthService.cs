@@ -87,6 +87,30 @@ public class AuthService : IAuthService
     }
 
     /// <summary>
+    /// Làm mới cặp Token: Kiểm tra Refresh Token hợp lệ, sinh cặp token mới.
+    /// </summary>
+    /// <param name="accessToken">Access Token cũ (chỉ dùng để log/debug, không validate)</param>
+    /// <param name="refreshToken">Refresh Token cần kiểm tra</param>
+    /// <returns>Cặp (AccessToken mới, RefreshToken mới)</returns>
+    /// <exception cref="UnauthorizedAccessException">Nếu Refresh Token không hợp lệ hoặc đã hết hạn</exception>
+    public async Task<(string AccessToken, string RefreshToken)> RefreshTokenAsync(string accessToken, string refreshToken)
+    {
+        // Tìm user theo Refresh Token, Include Role
+        var user = await _userRepository.GetByRefreshTokenAsync(refreshToken);
+
+        // Kiểm tra nếu user không tồn tại hoặc Refresh Token đã hết hạn
+        if (user is null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            throw new UnauthorizedAccessException("Refresh Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.");
+        }
+
+        // Sinh cặp token mới (hàm này tự động cập nhật User.RefreshToken vào DB)
+        var tokens = await GenerateTokensAsync(user);
+
+        return tokens;
+    }
+
+    /// <summary>
     /// Sinh JWT Access Token với claims: NameIdentifier, Name, Role, WarehouseId (nếu có).
     /// Sử dụng HMAC-SHA256 từ IConfiguration: Jwt:Key, Jwt:Issuer, Jwt:Audience.
     /// </summary>
@@ -155,3 +179,4 @@ public class AuthService : IAuthService
         return Convert.ToBase64String(randomNumber);
     }
 }
+
