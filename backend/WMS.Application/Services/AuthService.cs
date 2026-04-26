@@ -1,0 +1,125 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+
+using WMS.Application.Interfaces;
+using WMS.Domain.Entities;
+
+namespace WMS.Application.Services;
+
+/// <summary>
+/// Triển khai dịch vụ xác thực: Sinh cặp JWT Access Token và Refresh Token.
+/// Tuân thủ Clean Architecture (chỉ phụ thuộc Interfaces, không gọi DbContext trực tiếp từ ngoài tầng này).
+/// </summary>
+public class AuthService : IAuthService
+{
+    private readonly IConfiguration _configuration;
+    private readonly IUserRepository _userRepository;
+
+    public AuthService(IConfiguration configuration, IUserRepository userRepository)
+    {
+        _configuration = configuration;
+        _userRepository = userRepository;
+    }
+
+    /// <summary>
+    /// Sinh JWT Access Token (15 phút) và Refresh Token (7 ngày).
+    /// Tự động cập nhật User.RefreshToken và RefreshTokenExpiryTime vào DB.
+    /// </summary>
+    /// <param name="user">Người dùng (phải có Role đã được load từ DB)</param>
+    /// <returns>Cặp (AccessToken, RefreshToken)</returns>
+    public async Task<(string AccessToken, string RefreshToken)> GenerateTokensAsync(User user)
+    {
+        // Sinh Access Token (JWT sống 15 phút)
+        var accessToken = GenerateAccessToken(user);
+
+        // Sinh Refresh Token (Base64 ngẫu nhiên sống 7 ngày)
+        var refreshToken = GenerateRefreshToken();
+
+        // Tính ngày hết hạn của Refresh Token từ appsettings
+        var refreshTokenExpirationDaysStr = _configuration["Jwt:RefreshTokenExpirationDays"] ?? "7";
+        var refreshTokenExpirationDays = int.Parse(refreshTokenExpirationDaysStr);
+        var refreshTokenExpiryTime = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
+
+        // Cập nhật User object với Refresh Token mới
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = refreshTokenExpiryTime;
+
+        // Lưu xuống Database qua IUserRepository (Strict Nullable: đã đảm bảo gán giá trị trước khi lưu)
+        await _userRepository.UpdateAsync(user);
+
+        return (accessToken, refreshToken);
+    }
+
+    /// <summary>
+    /// Sinh JWT Access Token với claims: NameIdentifier, Name, Role, WarehouseId (nếu có).
+    /// Sử dụng HMAC-SHA256 từ IConfiguration: Jwt:Key, Jwt:Issuer, Jwt:Audience.
+    /// </summary>
+    private string GenerateAccessToken(User user)
+    {
+        // Lấy JWT configuration từ appsettings
+        var jwtKey = _configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("JWT Key không được cấu hình trong appsettings.");
+        
+        var jwtIssuer = _configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("JWT Issuer không được cấu hình trong appsettings.");
+        
+        var jwtAudience = _configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException("JWT Audience không được cấu hình trong appsettings.");
+        
+        var accessTokenExpirationMinutesStr = _configuration["Jwt:AccessTokenExpirationMinutes"] ?? "15";
+        var accessTokenExpirationMinutes = int.Parse(accessTokenExpirationMinutesStr);
+
+        // Tạo Security Key từ JWT Key (Symmetric Key)
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        // Xây dựng danh sách Claims
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Role, user.Role?.Name ?? string.Empty)
+        };
+
+        // Thêm WarehouseId claim nếu user có WarehouseId (Nullable-safe)
+        if (user.WarehouseId.HasValue)
+        {
+            claims.Add(new Claim("WarehouseId", user.WarehouseId.ToString()!));
+        }
+
+        // Tạo JwtSecurityToken
+        var token = new JwtSecurityToken(
+            issuer: jwtIssuer,
+            audience: jwtAudience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(accessTokenExpirationMinutes),
+            signingCredentials: credentials
+        );
+
+        // Chuyển đổi token thành chuỗi
+        var tokenHandler = new JwtSecurityTokenHandler();
+        return tokenHandler.WriteToken(token);
+    }
+
+    /// <summary>
+    /// Sinh Refresh Token: Chuỗi Base64 ngẫu nhiên 32 bytes an toàn.
+    /// Sử dụng RandomNumberGenerator từ System.Security.Cryptography.
+    /// </summary>
+    private static string GenerateRefreshToken()
+    {
+        // Tạo mảng 32 bytes ngẫu nhiên
+        var randomNumber = new byte[32];
+        
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(randomNumber);
+        }
+
+        // Encode thành Base64 string
+        return Convert.ToBase64String(randomNumber);
+    }
+}

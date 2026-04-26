@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using WMS.Infrastructure.Data;
+using WMS.Infrastructure;
 using WMS.API.Middlewares;
 using WMS.Application;
 using System.Security.Claims;
@@ -50,6 +51,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices();
 
 // Authentication (JWT Token validation)
 var jwtSecret = builder.Configuration["Jwt:Key"];
