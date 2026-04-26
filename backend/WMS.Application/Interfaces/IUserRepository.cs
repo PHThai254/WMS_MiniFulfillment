@@ -9,6 +9,13 @@ namespace WMS.Application.Interfaces;
 public interface IUserRepository
 {
     /// <summary>
+    /// Tìm user theo username, bao gồm thông tin Role.
+    /// </summary>
+    /// <param name="username">Tên đăng nhập</param>
+    /// <returns>User object với Role đã được load, hoặc null nếu không tìm thấy</returns>
+    Task<User?> GetByUsernameAsync(string username);
+
+    /// <summary>
     /// Cập nhật thông tin user (bao gồm Refresh Token) vào database.
     /// </summary>
     /// <param name="user">Người dùng cần cập nhật</param>

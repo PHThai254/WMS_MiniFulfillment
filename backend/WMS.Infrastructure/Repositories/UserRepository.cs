@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using WMS.Application.Interfaces;
 using WMS.Domain.Entities;
 using WMS.Infrastructure.Data;
@@ -14,6 +15,18 @@ public class UserRepository : IUserRepository
     public UserRepository(ApplicationDbContext dbContext)
     {
         _dbContext = dbContext;
+    }
+
+    /// <summary>
+    /// Tìm user theo username, bao gồm thông tin Role.
+    /// </summary>
+    /// <param name="username">Tên đăng nhập</param>
+    /// <returns>User object với Role đã được load, hoặc null nếu không tìm thấy</returns>
+    public async Task<User?> GetByUsernameAsync(string username)
+    {
+        return await _dbContext.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Username == username);
     }
 
     /// <summary>

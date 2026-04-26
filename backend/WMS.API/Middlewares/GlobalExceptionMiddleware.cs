@@ -40,13 +40,13 @@ public class GlobalExceptionMiddleware
             // Lỗi xác thực (Authentication)
             case UnauthorizedAccessException:
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                response.Message = "Không có quyền truy cập (Unauthorized)";
+                response.Message = exception.Message;
                 break;
 
             // Lỗi phân quyền (Authorization)
             case InvalidOperationException when exception.Message.Contains("role", StringComparison.OrdinalIgnoreCase):
                 context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                response.Message = "Bạn không có quyền thực hiện hành động này (Forbidden)";
+                response.Message = exception.Message;
                 break;
 
             // Lỗi nghiệp vụ (Validation/Business Logic)

@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using BCrypt.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -23,6 +24,37 @@ public class AuthService : IAuthService
     {
         _configuration = configuration;
         _userRepository = userRepository;
+    }
+
+    /// <summary>
+    /// Đăng nhập: Xác thực username/password và sinh cặp token.
+    /// </summary>
+    /// <param name="username">Tên đăng nhập</param>
+    /// <param name="password">Mật khẩu</param>
+    /// <returns>Cặp (AccessToken, RefreshToken)</returns>
+    /// <exception cref="UnauthorizedAccessException">Nếu username không tồn tại hoặc password sai</exception>
+    public async Task<(string AccessToken, string RefreshToken)> LoginAsync(string username, string password)
+    {
+        // Tìm user theo username, bao gồm Role
+        var user = await _userRepository.GetByUsernameAsync(username);
+
+        // Kiểm tra nếu user không tồn tại
+        if (user is null)
+        {
+            throw new UnauthorizedAccessException("Tài khoản hoặc mật khẩu không chính xác.");
+        }
+
+        // Kiểm tra mật khẩu bằng BCrypt
+        var isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+        if (!isPasswordValid)
+        {
+            throw new UnauthorizedAccessException("Tài khoản hoặc mật khẩu không chính xác.");
+        }
+
+        // Sinh cặp token (Access Token + Refresh Token)
+        var tokens = await GenerateTokensAsync(user);
+
+        return tokens;
     }
 
     /// <summary>

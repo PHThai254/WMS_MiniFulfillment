@@ -14,4 +14,5 @@ public interface IAuthService
     /// <param name="user">Người dùng cần sinh token (phải có Role đã được load từ DB)</param>
     /// <returns>Cặp (AccessToken, RefreshToken) dùng cho client</returns>
     Task<(string AccessToken, string RefreshToken)> GenerateTokensAsync(User user);
+    Task<(string AccessToken, string RefreshToken)> LoginAsync(string username, string password);
 }
