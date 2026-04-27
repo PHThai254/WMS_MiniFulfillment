@@ -1,38 +1,64 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
-import { Text, Avatar, Button, Card } from "react-native-paper";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
-export const ProfileScreen = () => {
+export const ProfileScreen = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Content style={{ alignItems: "center" }}>
-          <Avatar.Icon size={80} icon="account" />
-          <Text variant="titleLarge" style={{ marginTop: 10 }}>
-            Admin
-          </Text>
-          <Text>admin@gmail.com</Text>
 
-          <Button mode="contained" style={styles.btn}>
-            Đăng xuất
-          </Button>
-        </Card.Content>
-      </Card>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.headerText}>Profile</Text>
+      </View>
+
+      {/* CONTENT */}
+      <View style={styles.content}>
+        <Text>Tên: Admin</Text>
+        <Text>Email: admin@gmail.com</Text>
+      </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
+          <Text style={styles.icon}>🏠</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+          <Text style={styles.icon}>👤</Text>
+        </TouchableOpacity>
+
+      </View>
+
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F7FA",
+  container: { flex: 1 },
+  header: {
+    height: 80,
+    backgroundColor: "#4A90E2",
     justifyContent: "center",
-    padding: 16,
+    alignItems: "center",
   },
-  card: {
-    borderRadius: 16,
+  headerText: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "bold",
   },
-  btn: {
-    marginTop: 20,
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footer: {
+    height: 70,
+    backgroundColor: "#ccc",
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  icon: {
+    fontSize: 30,
   },
 });

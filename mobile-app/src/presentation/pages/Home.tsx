@@ -1,48 +1,33 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
-import { Text, Card } from "react-native-paper";
-import { Button } from "react-native-paper";
-import { useNavigation } from "@react-navigation/native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
-export const HomeScreen = () => {
-  const navigation = useNavigation();
+export const HomeScreen = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.header}>
-        Dashboard
-      </Text>
 
-      <View style={styles.row}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text>Sản phẩm</Text>
-            <Text variant="titleLarge">120</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text>Đơn nhập</Text>
-            <Text variant="titleLarge">5</Text>
-          </Card.Content>
-        </Card>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.headerText}>WMS</Text>
       </View>
 
-      <View style={styles.row}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text>Đơn xuất</Text>
-            <Text variant="titleLarge">3</Text>
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text>Tồn kho</Text>
-            <Text variant="titleLarge">320</Text>
-          </Card.Content>
-        </Card>
+      {/* CONTENT */}
+      <View style={styles.content}>
+        <Text>Dashboard (chưa có dữ liệu)</Text>
       </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
+          <Text style={styles.icon}>🏠</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+          <Text style={styles.icon}>👤</Text>
+        </TouchableOpacity>
+
+      </View>
+
     </View>
   );
 };
@@ -50,19 +35,32 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "#F5F7FA",
   },
   header: {
-    marginBottom: 16,
+    height: 80,
+    backgroundColor: "#4A90E2",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  headerText: {
+    fontSize: 26,
+    color: "#fff",
+    fontWeight: "bold",
   },
-  card: {
+  content: {
     flex: 1,
-    margin: 5,
-    borderRadius: 12,
+    backgroundColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footer: {
+    height: 70,
+    backgroundColor: "#ccc",
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  icon: {
+    fontSize: 30,
   },
 });
