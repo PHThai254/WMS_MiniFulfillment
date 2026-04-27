@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { SafeAreaView, StyleSheet, Alert } from "react-native";
-import { TextInput, Button, Text, Card } from "react-native-paper";
+import { SafeAreaView, StyleSheet, Alert, Text } from "react-native";
+import { TextInput, Button, Card } from "react-native-paper";
 import { login } from "../../infrastructure/authService";
 
 export const LoginScreen = ({ navigation }: any) => {
@@ -67,6 +67,7 @@ export const LoginScreen = ({ navigation }: any) => {
             loading={loading}
             disabled={loading}
             style={styles.button}
+            labelStyle={{ color: "#fff", fontWeight: "bold" }}
           >
             Đăng nhập
           </Button>

@@ -24,7 +24,7 @@ const Stack = createNativeStackNavigator();
 
 function App() {
   return (
-    <PaperProvider>   {/* ✅ THÊM CÁI NÀY */}
+    <PaperProvider>
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Login">
           <Stack.Screen 
