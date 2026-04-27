@@ -1,31 +1,31 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { SafeAreaView, StyleSheet, Alert } from "react-native";
 import { TextInput, Button, Text, Card } from "react-native-paper";
-import axios from "axios";
+import { login } from "../../infrastructure/authService";
 
-export const LoginScreen = ({navigation }: any) => {
-  const [email, setEmail] = useState("");
+export const LoginScreen = ({ navigation }: any) => {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert("Lỗi", "Vui lòng nhập username và password.");
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        "http://10.0.2.2:8000/api/login/", // ⚠️ Android dùng 10.0.2.2 thay localhost
-        {
-          email: email,
-          password: password,
-        }
-      );
+      const { accessToken, refreshToken } = await login(username.trim(), password);
 
-      console.log("TOKEN:", response.data);
+      console.log("AccessToken:", accessToken);
+      console.log("RefreshToken:", refreshToken);
 
-      Alert.alert("Thành công", "Đăng nhập OK");
-
+      Alert.alert("Thành công", "Đăng nhập thành công.");
+      navigation.navigate("Home");
     } catch (error: any) {
-      console.log(error.response?.data || error.message);
+      console.log(error.response?.data || error.message || error);
       Alert.alert("Lỗi", "Sai tài khoản hoặc mật khẩu");
     } finally {
       setLoading(false);
@@ -33,39 +33,46 @@ export const LoginScreen = ({navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Card style={styles.card}>
         <Card.Content>
-
-          <Text style={styles.title}>WMS Login</Text>
+          <Text style={[styles.title, { fontSize: 24, fontWeight: 'bold' }]}>
+            WMS Login
+          </Text>
 
           <TextInput
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
+            label="Username"
+            value={username}
+            onChangeText={setUsername}
             style={styles.input}
             mode="outlined"
+            autoCapitalize="none"
+            returnKeyType="next"
           />
 
           <TextInput
             label="Password"
-            secureTextEntry={true}
+            secureTextEntry
             value={password}
             onChangeText={setPassword}
             style={styles.input}
             mode="outlined"
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
 
-          <Button 
-            mode="contained" 
-            onPress={() => navigation.navigate("Home")}
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
           >
-            Login
+            Đăng nhập
           </Button>
-
         </Card.Content>
       </Card>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -78,18 +85,42 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 16,
-    padding: 10,
+    padding: 16,
   },
   title: {
     textAlign: "center",
-    marginBottom: 20,
-    fontSize: 22,
+    marginBottom: 24,
     fontWeight: "bold",
   },
   input: {
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  button: {
+    marginTop: 8,
   },
 });
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     backgroundColor: "#4A90E2",
+//     justifyContent: "center",
+//     padding: 20,
+//   },
+//   card: {
+//     borderRadius: 16,
+//     padding: 10,
+//   },
+//   title: {
+//     textAlign: "center",
+//     marginBottom: 20,
+//     fontSize: 22,
+//     fontWeight: "bold",
+//   },
+//   input: {
+//     marginBottom: 12,
+//   },
+// });
 
 // export const LoginScreen = ({ navigation }: any) => {
 //   return (
