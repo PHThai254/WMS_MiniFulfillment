@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { SafeAreaView, StyleSheet, Alert } from "react-native";
 import * as SecureStore from 'expo-secure-store';
 import { LoginCard, LoginInput, PrimaryButton } from "../../components";
-import { login } from "../../infrastructure/authService";
+import apiClient from "../../di/apiClient"; // Đã thay đổi import này
 import { useAuth } from "../context/AuthContext";
 
 export const LoginScreen = ({ navigation }: any) => {
@@ -20,21 +20,36 @@ export const LoginScreen = ({ navigation }: any) => {
     try {
       setLoading(true);
 
-      // Gọi API login với apiClient (có Interceptor tự động)
-      const { accessToken, refreshToken } = await login(username.trim(), password);
+      // 1. Gọi trực tiếp apiClient xuống Backend với đúng format Body
+      const response = await apiClient.post('/api/auth/login', {
+        Username: username.trim(),
+        Password: password
+      });
 
-      // Lưu token vào SecureStore
-      await SecureStore.setItemAsync('accessToken', accessToken);
-      await SecureStore.setItemAsync('refreshToken', refreshToken);
+      // 2. Chặn cổng kiểm tra biến 'success' do C# trả về
+      if (response.data.success) {
+        // Đăng nhập thật sự thành công, bóc tách token
+        const { accessToken, refreshToken } = response.data.data;
 
-      console.log("✅ Đăng nhập thành công");
-      
-      // Cập nhật auth state - sẽ trigger navigation sang MainTabs
-      await signIn();
+        // Lưu token vào SecureStore
+        await SecureStore.setItemAsync('accessToken', accessToken);
+        await SecureStore.setItemAsync('refreshToken', refreshToken);
+
+        console.log("✅ Đăng nhập thành công, Token đã được lưu!");
+        
+        // Trigger Navigation sang MainTabs
+        await signIn();
+      } else {
+        // Đăng nhập thất bại (Sai pass, khóa tài khoản...) -> Báo lỗi rành mạch
+        console.warn("⚠️ Đăng nhập thất bại:", response.data.message);
+        Alert.alert("Đăng nhập thất bại", response.data.message);
+      }
+
     } catch (error: any) {
+      // 3. Xử lý các lỗi sập mạng, sập server (HTTP 4xx, 5xx)
       const errorMsg = error.response?.data?.message || error.message || "Lỗi không xác định";
-      console.error("❌ Lỗi đăng nhập:", errorMsg);
-      Alert.alert("Lỗi đăng nhập", errorMsg);
+      console.error("❌ Lỗi hệ thống:", errorMsg);
+      Alert.alert("Lỗi kết nối", "Không thể kết nối đến máy chủ.");
     } finally {
       setLoading(false);
     }

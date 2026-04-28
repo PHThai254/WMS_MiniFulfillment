@@ -76,7 +76,7 @@ public class GlobalExceptionMiddleware
 
         response.Success = false;
 
-        // Ghi log lỗi
+        // Ghi log lỗi thông minh hơn
         LogException(exception, context);
 
         return context.Response.WriteAsJsonAsync(response);
@@ -85,19 +85,33 @@ public class GlobalExceptionMiddleware
     private static void LogException(Exception exception, HttpContext context)
     {
         var logger = context.RequestServices.GetRequiredService<ILogger<GlobalExceptionMiddleware>>();
-        
-        var errorDetails = new
-        {
-            Timestamp = DateTime.UtcNow,
-            Method = context.Request.Method,
-            Path = context.Request.Path,
-            QueryString = context.Request.QueryString,
-            StatusCode = context.Response.StatusCode,
-            ExceptionType = exception.GetType().Name,
-            Message = exception.Message,
-            StackTrace = exception.StackTrace
-        };
+        var statusCode = context.Response.StatusCode;
 
-        logger.LogError("Exception: {@ErrorDetails}", errorDetails);
+        // Nếu là lỗi 4xx (Lỗi từ phía người dùng / Lỗi nghiệp vụ) -> Chỉ log Warning cho sạch màn hình
+        if (statusCode >= 400 && statusCode < 500)
+        {
+            logger.LogWarning("⚠️ Lỗi nghiệp vụ [{StatusCode}] tại {Method} {Path}: {Message}",
+                statusCode,
+                context.Request.Method,
+                context.Request.Path,
+                exception.Message);
+        }
+        // Nếu là lỗi 5xx (Lỗi hỏng hóc hệ thống thật sự) -> Log Error đỏ lòm kèm StackTrace để dev debug
+        else
+        {
+            var errorDetails = new
+            {
+                Timestamp = DateTime.UtcNow,
+                Method = context.Request.Method,
+                Path = context.Request.Path,
+                QueryString = context.Request.QueryString,
+                StatusCode = statusCode,
+                ExceptionType = exception.GetType().Name,
+                Message = exception.Message,
+                StackTrace = exception.StackTrace // Giữ lại StackTrace để đi tìm bug
+            };
+
+            logger.LogError(exception, "❌ Lỗi hệ thống nghiêm trọng: {@ErrorDetails}", errorDetails);
+        }
     }
 }

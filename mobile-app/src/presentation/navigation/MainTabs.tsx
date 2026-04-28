@@ -1,4 +1,5 @@
 // mobile-app/src/presentation/navigation/MainTabs.tsx
+import {PickingScanner} from '../../components/PickingScanner'; 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -62,6 +63,16 @@ export const MainTabs = () => {
           ),
         }}
       />
+      <Tab.Screen 
+        name="Scanner" 
+        component={PickingScanner} 
+        options={{ 
+            title: 'Quét Mã', 
+            tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="barcode-scan" color={color} size={size} />
+            ),
+        }} 
+        />
     </Tab.Navigator>
   );
 };

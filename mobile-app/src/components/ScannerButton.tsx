@@ -1,4 +1,4 @@
-// mobile-app/src/components/ScannerButton.tsx
+// mobile-app/src/components/ScannerButton.tsx (Updated)
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import { Button } from 'react-native-paper';
@@ -11,27 +11,44 @@ interface ScannerButtonProps {
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
+  size?: 'small' | 'medium' | 'large';
 }
 
 export const ScannerButton: React.FC<ScannerButtonProps> = ({
   mode = 'contained',
   onPress,
   children,
+  loading = false,
+  disabled = false,
+  size = 'large',
+  style,
   ...props
 }) => {
-  const handlePress = () => {
-    // Luôn rung nhẹ khi bấm để tăng UX cho màn hình cảm ứng
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
+  const handlePress = async () => {
+    try {
+      // Haptic feedback khi bấm
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onPress();
+    } catch (error) {
+      console.error('❌ Error in ScannerButton press:', error);
+    }
+  };
+
+  const sizeStyles = {
+    small: styles.buttonSmall,
+    medium: styles.buttonMedium,
+    large: styles.buttonLarge,
   };
 
   return (
     <Button
       mode={mode}
       onPress={handlePress}
-      contentStyle={styles.buttonContent}
+      loading={loading}
+      disabled={disabled || loading}
+      contentStyle={[styles.buttonContent, sizeStyles[size]]}
       labelStyle={styles.buttonLabel}
-      style={[styles.button, props.style]}
+      style={[styles.button, style]}
       {...props}
     >
       {children}
@@ -45,7 +62,16 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   buttonContent: {
-    height: 56, // Ép chiều cao tối thiểu 56px chuẩn ngón tay
+    paddingVertical: 8,
+  },
+  buttonSmall: {
+    height: 40,
+  },
+  buttonMedium: {
+    height: 48,
+  },
+  buttonLarge: {
+    height: 56,
   },
   buttonLabel: {
     fontSize: 18,

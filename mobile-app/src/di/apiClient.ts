@@ -4,7 +4,7 @@ import { authEventEmitter } from './authEvents';
 
 // Định nghĩa type cho response từ Backend
 interface ApiResponse<T = any> {
-  succeeded: boolean;
+  success: boolean;
   message: string;
   data: T;
 }
@@ -16,8 +16,12 @@ interface TokenData {
 
 // Khởi tạo Axios instance
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000',
+  // baseURL: process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:5000',
+  baseURL: 'http://10.0.2.2:5288',
   timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
 });
 
 // ============================================
@@ -46,6 +50,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Dặn Interceptor bỏ qua, không can thiệp vào API Login
+    if (originalRequest.url?.includes('/api/auth/login')) {
+      return Promise.reject(error);
+    }
+
     // Kiểm tra nếu lỗi 401 và chưa retry
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -67,11 +76,17 @@ apiClient.interceptors.response.use(
           {
             AccessToken: accessToken,
             RefreshToken: refreshToken,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
           }
+
         );
 
         // Kiểm tra API thành công
-        if (refreshResponse.data.succeeded && refreshResponse.data.data) {
+        if (refreshResponse.data.success && refreshResponse.data.data) {
           const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data.data;
 
           // Lưu token mới vào SecureStore
