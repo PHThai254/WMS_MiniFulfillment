@@ -3,8 +3,10 @@ import { SafeAreaView, StyleSheet, Alert } from "react-native";
 import * as SecureStore from 'expo-secure-store';
 import { LoginCard, LoginInput, PrimaryButton } from "../../components";
 import { login } from "../../infrastructure/authService";
+import { useAuth } from "../context/AuthContext";
 
 export const LoginScreen = ({ navigation }: any) => {
+  const { signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,11 +29,8 @@ export const LoginScreen = ({ navigation }: any) => {
 
       console.log("✅ Đăng nhập thành công");
       
-      // Navigate to Home (reset stack để không thể back)
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
+      // Cập nhật auth state - sẽ trigger navigation sang MainTabs
+      await signIn();
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message || "Lỗi không xác định";
       console.error("❌ Lỗi đăng nhập:", errorMsg);
