@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SafeAreaView, StyleSheet, Alert, Text } from "react-native";
 import { TextInput, Button, Card } from "react-native-paper";
+import * as SecureStore from 'expo-secure-store';
 import { login } from "../../infrastructure/authService";
 
 export const LoginScreen = ({ navigation }: any) => {
@@ -19,14 +20,24 @@ export const LoginScreen = ({ navigation }: any) => {
 
       const { accessToken, refreshToken } = await login(username.trim(), password);
 
-      console.log("AccessToken:", accessToken);
-      console.log("RefreshToken:", refreshToken);
+      // Lưu token vào SecureStore
+      await SecureStore.setItemAsync('accessToken', accessToken);
+      await SecureStore.setItemAsync('refreshToken', refreshToken);
 
-      Alert.alert("Thành công", "Đăng nhập thành công.");
-      navigation.navigate("Home");
+      console.log("✅ Đăng nhập thành công & lưu token vào SecureStore");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
     } catch (error: any) {
-      console.log(error.response?.data || error.message || error);
-      Alert.alert("Lỗi", "Sai tài khoản hoặc mật khẩu");
+      const errorMsg = error.response?.data?.message || error.message || "Lỗi không xác định";
+      console.error("❌ Lỗi đăng nhập:", errorMsg);
+      
+      if (error.message === 'TOKEN_EXPIRED') {
+        Alert.alert("Lỗi", "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      } else {
+        Alert.alert("Lỗi", errorMsg);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,32 +1,41 @@
-import axios from "axios";
-
-const API_BASE_URL = "http://10.0.2.2:8000";
+import apiClient, { type ApiResponse, type TokenData } from '../di/apiClient';
 
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
 };
 
+/**
+ * Đăng nhập với username và password
+ * @param username - Tên đăng nhập
+ * @param password - Mật khẩu
+ * @returns Promise chứa accessToken và refreshToken
+ */
 export const login = async (
   username: string,
   password: string
 ): Promise<LoginResponse> => {
-  const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
-    Username: username,
-    Password: password,
-  });
+  try {
+    const response = await apiClient.post<ApiResponse<TokenData>>('/api/auth/login', {
+      Username: username,
+      Password: password,
+    });
 
-  if (!response.data?.succeeded) {
-    throw new Error(response.data?.message || "Đăng nhập thất bại");
+    if (!response.data?.succeeded) {
+      throw new Error(response.data?.message || 'Đăng nhập thất bại');
+    }
+
+    const payload = response.data?.data;
+    if (!payload?.accessToken || !payload?.refreshToken) {
+      throw new Error('Server trả về dữ liệu đăng nhập không hợp lệ');
+    }
+
+    return {
+      accessToken: payload.accessToken,
+      refreshToken: payload.refreshToken,
+    };
+  } catch (error: any) {
+    console.error('❌ Lỗi đăng nhập:', error.message);
+    throw error;
   }
-
-  const payload = response.data?.data;
-  if (!payload?.accessToken || !payload?.refreshToken) {
-    throw new Error("Server trả về dữ liệu đăng nhập không hợp lệ");
-  }
-
-  return {
-    accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
-  };
 };
