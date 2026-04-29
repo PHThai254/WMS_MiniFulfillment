@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using WMS.Application.Interfaces;
 using WMS.Infrastructure.Repositories;
+using WMS.Infrastructure.Services;
 
 namespace WMS.Infrastructure;
 
@@ -19,6 +20,9 @@ public static class DependencyInjection
     {
         // Register Repository implementations
         services.AddScoped<IUserRepository, UserRepository>();
+
+        // Register ICurrentUserContext to extract user info from JWT Token
+        services.AddScoped<ICurrentUserContext, CurrentUserContext>();
         
         return services;
     }

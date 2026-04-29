@@ -10,6 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Add HttpContextAccessor for accessing current user information (JWT Token claims)
+builder.Services.AddHttpContextAccessor();
+
 // Swagger/OpenAPI with JWT Authentication
 builder.Services.AddSwaggerGen(options =>
 {
