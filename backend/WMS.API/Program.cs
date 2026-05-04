@@ -97,6 +97,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await DbInitializer.SeedAsync(dbContext);
+}
+
 // 1. Global Exception Middleware (PHẢI ở đầu)
 app.UseMiddleware<GlobalExceptionMiddleware>();
 

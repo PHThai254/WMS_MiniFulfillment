@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using WMS.Application.Interfaces;
 
 namespace WMS.Infrastructure.Services;
@@ -18,7 +19,7 @@ public class CurrentUserContext : ICurrentUserContext
     public Guid? GetCurrentWarehouseId()
     {
         var warehouseIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst("WarehouseId")?.Value;
-        
+
         if (string.IsNullOrEmpty(warehouseIdClaim))
             return null;
 

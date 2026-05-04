@@ -11,5 +11,5 @@ using WMS.Domain.Enums;
         public Guid? SupplierId { get; set; }
         public Supplier? Supplier { get; set; }
         public ICollection<ReceiptDetail> ReceiptDetails { get; set; } = new List<ReceiptDetail>();
-
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

@@ -3,27 +3,37 @@ using Microsoft.Extensions.DependencyInjection;
 using WMS.Application.Interfaces;
 using WMS.Infrastructure.Repositories;
 using WMS.Infrastructure.Services;
+using WMS.Infrastructure.Services.MasterData;
+using WMS.Infrastructure.Services.Management;
+using WMS.Infrastructure.Services.Operations;
 
 namespace WMS.Infrastructure;
 
-/// <summary>
-/// Extension methods for registering Infrastructure layer services.
-/// </summary>
 public static class DependencyInjection
 {
-    /// <summary>
-    /// Adds Infrastructure layer services to the dependency injection container.
-    /// </summary>
-    /// <param name="services">The service collection to add services to.</param>
-    /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
-        // Register Repository implementations
+        // Auth & User Context
         services.AddScoped<IUserRepository, UserRepository>();
-
-        // Register ICurrentUserContext to extract user info from JWT Token
         services.AddScoped<ICurrentUserContext, CurrentUserContext>();
-        
+
+        // Master Data Services
+        services.AddScoped<IWarehouseService, WarehouseService>();
+        services.AddScoped<IZoneService, ZoneService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<ISupplierService, SupplierService>();
+        services.AddScoped<ICustomerService, CustomerService>();
+
+        // Operation Services
+        services.AddScoped<IReceiptService, ReceiptService>();
+        services.AddScoped<IIssueService, IssueService>();
+
+        // Management Services
+        services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
+        services.AddScoped<IUserManagementService, UserManagementService>();
+
         return services;
     }
 }

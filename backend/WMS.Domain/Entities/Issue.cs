@@ -11,4 +11,5 @@ using WMS.Domain.Enums;
         public Guid? CustomerId { get; set; }
         public Customer? Customer { get; set; }
         public ICollection<IssueDetail> IssueDetails { get; set; } = new List<IssueDetail>();
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
