@@ -66,8 +66,8 @@ public static class DbInitializer
 
     private static async Task EnsureAdminUserAsync(ApplicationDbContext context, Role adminRole)
     {
-        var hasUsers = await context.Users.AnyAsync();
-        if (hasUsers)
+        var hasAdmin = await context.Users.AnyAsync(u => u.Username == "admin");
+        if (hasAdmin)
         {
             return;
         }

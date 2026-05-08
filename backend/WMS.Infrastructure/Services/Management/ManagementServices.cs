@@ -91,12 +91,37 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<List<LowStockProductDto>> GetLowStockProductsAsync(int top = 5)
     {
-        return await _db.Inventories.IgnoreQueryFilters().Include(i => i.Product)
-            .GroupBy(i => new { i.ProductId, i.Product!.Name, i.Product.Barcode })
-            .Select(g => new LowStockProductDto(g.Key.ProductId, g.Key.Name, g.Key.Barcode, g.Sum(i => i.Quantity)))
-            .OrderBy(s => s.TotalQuantity).Take(top).ToListAsync();
-    }
+    // BƯỚC 1: Bắt EF Core dịch sang SQL và tính toán (Dùng Anonymous Type)
+    var rawData = await _db.Inventories
+        .GroupBy(i => new
+        {
+            i.ProductId,
+            ProductName = i.Product!.Name,
+            ProductBarcode = i.Product!.Barcode
+        })
+        .Select(g => new 
+        {
+            ProductId = g.Key.ProductId,
+            ProductName = g.Key.ProductName,
+            ProductBarcode = g.Key.ProductBarcode,
+            TotalQuantity = g.Sum(i => i.Quantity) // Tính tổng dưới SQL
+        })
+        .OrderBy(x => x.TotalQuantity)
+        .Take(top)
+        .ToListAsync(); // <--- Kéo kết quả cuối cùng về RAM máy chủ
 
+    // BƯỚC 2: Map dữ liệu trên RAM vào Record DTO để trả về cho API
+    var lowStockProducts = rawData
+        .Select(x => new LowStockProductDto(
+            x.ProductId,
+            x.ProductName,
+            x.ProductBarcode,
+            x.TotalQuantity
+        ))
+        .ToList();
+
+    return lowStockProducts;
+    }
     public async Task<List<StockMovementDto>> GetStockMovementsAsync(int days = 7)
     {
         var from = DateTime.UtcNow.AddDays(-days).Date;
@@ -146,10 +171,20 @@ public class UserManagementService : IUserManagementService
 
     public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
-        user.Username = request.Username; user.RoleId = request.RoleId; user.WarehouseId = request.WarehouseId;
-        await _db.SaveChangesAsync();
-        return (await GetByIdAsync(user.Id))!;
+    var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
+
+    // BỔ SUNG: Kiểm tra xem Username định đổi có bị trùng với người khác không
+    if (await _db.Users.AnyAsync(u => u.Username == request.Username && u.Id != id))
+    {
+        throw new ArgumentException("Tên đăng nhập này đã có người khác sử dụng!");
+    }
+
+    user.Username = request.Username; 
+    user.RoleId = request.RoleId; 
+    user.WarehouseId = request.WarehouseId;
+    
+    await _db.SaveChangesAsync();
+    return (await GetByIdAsync(user.Id))!;
     }
 
     public async Task ChangePasswordAsync(Guid id, string newPassword)
