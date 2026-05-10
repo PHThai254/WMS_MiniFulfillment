@@ -6,7 +6,8 @@ public record ProductDto(
     string Barcode,
     string Name,
     Guid CategoryId,
-    string CategoryName
+    string CategoryName,
+    string? ImagePath = null
 );
 
 public record CreateProductRequest(
@@ -19,4 +20,11 @@ public record UpdateProductRequest(
     string Name,
     string SKU,
     Guid CategoryId
+);
+
+public record ProductImageUploadResponse(
+    Guid ProductId,
+    string ImagePath,
+    string FileName,
+    string Message
 );

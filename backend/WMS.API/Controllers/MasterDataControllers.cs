@@ -196,6 +196,30 @@ public class ProductsController : ControllerBase
         await _service.DeleteAsync(id);
         return Ok(ApiResponse<object>.Succeeded(null!, "Xóa sản phẩm thành công."));
     }
+
+    [HttpPost("{id:guid}/image")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<ProductImageUploadResponse>>> UploadImage(Guid id, IFormFile image)
+    {
+        if (image == null || image.Length == 0)
+            return BadRequest(ApiResponse<ProductImageUploadResponse>.Failed("File ảnh không được để trống."));
+
+        var imageService = HttpContext.RequestServices.GetRequiredService<IProductImageService>();
+        using (var stream = image.OpenReadStream())
+        {
+            var result = await imageService.UploadProductImageAsync(id, stream, image.FileName);
+            return Ok(ApiResponse<ProductImageUploadResponse>.Succeeded(result, "Tải lên ảnh thành công."));
+        }
+    }
+
+    [HttpDelete("{id:guid}/image")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteImage(Guid id)
+    {
+        var imageService = HttpContext.RequestServices.GetRequiredService<IProductImageService>();
+        await imageService.DeleteProductImageAsync(id);
+        return Ok(ApiResponse<object>.Succeeded(null!, "Xóa ảnh sản phẩm thành công."));
+    }
 }
 
 [ApiController]

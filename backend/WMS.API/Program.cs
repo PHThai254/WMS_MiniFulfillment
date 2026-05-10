@@ -109,10 +109,13 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 // 2. Redirect HTTP → HTTPS
 app.UseHttpsRedirection();
 
-// 3. CORS (nếu cần)
+// 3. Static Files (Serve uploaded images)
+app.UseStaticFiles();
+
+// 4. CORS (nếu cần)
 app.UseCors("AllowAll");
 
-// 4. Swagger UI (chỉ trong Development)
+// 5. Swagger UI (chỉ trong Development)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -123,16 +126,16 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// 5. Routing
+// 6. Routing
 app.UseRouting();
 
-// 6. Authentication (xác thực token)
+// 7. Authentication (xác thực token)
 app.UseAuthentication();
 
-// 7. Authorization (phân quyền)
+// 8. Authorization (phân quyền)
 app.UseAuthorization();
 
-// 8. Map Controllers
+// 9. Map Controllers
 app.MapControllers();
 
 app.Run();

@@ -149,19 +149,19 @@ public class ProductService : IProductService
             query = query.Where(p => p.Name.Contains(search) || p.SKU.Contains(search) || p.Barcode.Contains(search));
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId.Value);
-        return await query.Select(p => new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category!.Name)).ToListAsync();
+        return await query.Select(p => new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category!.Name, p.ImagePath)).ToListAsync();
     }
 
     public async Task<ProductDto?> GetByIdAsync(Guid id)
     {
         var p = await _db.Products.Include(p => p.Category).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty);
+        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
     }
 
     public async Task<ProductDto?> GetByBarcodeAsync(string barcode)
     {
         var p = await _db.Products.Include(p => p.Category).AsNoTracking().FirstOrDefaultAsync(x => x.Barcode == barcode);
-        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty);
+        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
     }
 
     public async Task<ProductDto> CreateAsync(CreateProductRequest request)
@@ -172,7 +172,7 @@ public class ProductService : IProductService
         _db.Products.Add(product);
         await _db.SaveChangesAsync();
         var cat = await _db.Categories.FindAsync(request.CategoryId);
-        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, cat?.Name ?? string.Empty);
+        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, cat?.Name ?? string.Empty, product.ImagePath);
     }
 
     public async Task<ProductDto> UpdateAsync(Guid id, UpdateProductRequest request)
@@ -181,7 +181,7 @@ public class ProductService : IProductService
             ?? throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
         product.Name = request.Name; product.SKU = request.SKU; product.CategoryId = request.CategoryId;
         await _db.SaveChangesAsync();
-        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, product.Category?.Name ?? string.Empty);
+        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, product.Category?.Name ?? string.Empty, product.ImagePath);
     }
 
     public async Task DeleteAsync(Guid id)
@@ -234,6 +234,89 @@ public class SupplierService : ISupplierService
     {
         var s = await _db.Suppliers.FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy nhà cung cấp.");
         _db.Suppliers.Remove(s);
+        await _db.SaveChangesAsync();
+    }
+}
+
+public class ProductImageService : IProductImageService
+{
+    private readonly ApplicationDbContext _db;
+    private readonly string _uploadsPath;
+
+    public ProductImageService(ApplicationDbContext db)
+    {
+        _db = db;
+        // Use a relative path from current directory (wwwroot/uploads/products)
+        _uploadsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "uploads", "products");
+    }
+
+    public async Task<ProductImageUploadResponse> UploadProductImageAsync(Guid productId, Stream imageStream, string fileName)
+    {
+        // Kiểm tra tồn tại sản phẩm
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == productId)
+            ?? throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
+
+        // Kiểm tra file
+        if (imageStream == null || imageStream.Length == 0)
+            throw new ArgumentException("File ảnh không được để trống.");
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        var fileExtension = Path.GetExtension(fileName).ToLower();
+        if (!allowedExtensions.Contains(fileExtension))
+            throw new ArgumentException($"Chỉ chấp nhận các định dạng: {string.Join(", ", allowedExtensions)}");
+
+        var maxFileSize = 5 * 1024 * 1024; // 5 MB
+        if (imageStream.Length > maxFileSize)
+            throw new ArgumentException("Kích thước file không được vượt quá 5 MB.");
+
+        // Tạo đường dẫn lưu trữ
+        if (!Directory.Exists(_uploadsPath))
+            Directory.CreateDirectory(_uploadsPath);
+
+        // Xóa ảnh cũ nếu tồn tại
+        if (!string.IsNullOrEmpty(product.ImagePath))
+        {
+            var oldFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", product.ImagePath.TrimStart('/'));
+            if (File.Exists(oldFilePath))
+                File.Delete(oldFilePath);
+        }
+
+        // Lưu ảnh mới
+        var uniqueFileName = $"{productId}_{DateTime.Now:yyyyMMddHHmmss}{fileExtension}";
+        var filePath = Path.Combine(_uploadsPath, uniqueFileName);
+        
+        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            await imageStream.CopyToAsync(fileStream);
+        }
+
+        // Cập nhật đường dẫn ảnh trong DB
+        product.ImagePath = $"/uploads/products/{uniqueFileName}";
+        await _db.SaveChangesAsync();
+
+        return new ProductImageUploadResponse(
+            productId,
+            product.ImagePath,
+            uniqueFileName,
+            "Tải lên ảnh sản phẩm thành công."
+        );
+    }
+
+    public async Task DeleteProductImageAsync(Guid productId)
+    {
+        var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == productId)
+            ?? throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
+
+        if (string.IsNullOrEmpty(product.ImagePath))
+            throw new ArgumentException("Sản phẩm không có ảnh để xóa.");
+
+        // Xóa file vật lý
+        var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", product.ImagePath.TrimStart('/'));
+        if (File.Exists(filePath))
+            File.Delete(filePath);
+
+        // Xóa đường dẫn ảnh khỏi DB
+        product.ImagePath = null;
         await _db.SaveChangesAsync();
     }
 }

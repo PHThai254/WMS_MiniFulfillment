@@ -48,6 +48,12 @@ public interface ISupplierService
     Task DeleteAsync(Guid id);
 }
 
+public interface IProductImageService
+{
+    Task<ProductImageUploadResponse> UploadProductImageAsync(Guid productId, Stream imageStream, string fileName);
+    Task DeleteProductImageAsync(Guid productId);
+}
+
 public interface ICustomerService
 {
     Task<List<CustomerDto>> GetAllAsync();
