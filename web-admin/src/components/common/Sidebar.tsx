@@ -32,46 +32,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         },
     ];
 
-    // Master Data - All roles can see
-    if (user?.role === 'Admin') {
-        menuItems.push({
-            key: 'master-data',
-            icon: <DatabaseOutlined />,
-            label: 'Master Data',
-            children: [
-                {
-                    key: 'warehouses',
-                    label: 'Warehouses',
-                    onClick: () => navigate('/warehouses'),
-                },
-                {
-                    key: 'zones',
-                    label: 'Zones',
-                    onClick: () => navigate('/zones'),
-                },
-                {
-                    key: 'products',
-                    label: 'Products',
-                    onClick: () => navigate('/products'),
-                },
-                {
-                    key: 'categories',
-                    label: 'Categories',
-                    onClick: () => navigate('/categories'),
-                },
-                {
-                    key: 'suppliers',
-                    label: 'Suppliers',
-                    onClick: () => navigate('/suppliers'),
-                },
-                {
-                    key: 'customers',
-                    label: 'Customers',
-                    onClick: () => navigate('/customers'),
-                },
-            ],
-        });
-    }
+    // Master Data - All roles can see 
+    menuItems.push({
+        key: 'master-data',
+        icon: <DatabaseOutlined />,
+        label: 'Master Data',
+        children: [
+            {
+                key: 'warehouses',
+                label: 'Warehouses',
+                onClick: () => navigate('/warehouses'),
+            },
+            {
+                key: 'zones',
+                label: 'Zones',
+                onClick: () => navigate('/zones'),
+            },
+            {
+                key: 'products',
+                label: 'Products',
+                onClick: () => navigate('/products'),
+            },
+            {
+                key: 'categories',
+                label: 'Categories',
+                onClick: () => navigate('/categories'),
+            },
+            {
+                key: 'suppliers',
+                label: 'Suppliers',
+                onClick: () => navigate('/suppliers'),
+            },
+            {
+                key: 'customers',
+                label: 'Customers',
+                onClick: () => navigate('/customers'),
+            },
+        ],
+    });
 
     // Operations
     menuItems.push({
@@ -130,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         ],
     });
 
-    // User Management - Admin only
+    // User Management - Admin only (VẪN GIỮ LẠI LỆNH IF ĐỂ BẢO MẬT)
     if (user?.role === 'Admin') {
         menuItems.push({
             key: 'users',
