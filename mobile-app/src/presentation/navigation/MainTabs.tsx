@@ -31,7 +31,7 @@ export const MainTabs = () => {
       }}
     >
       <Tab.Screen
-        name="HomeTab"
+        name="Home"
         component={HomeScreen}
         options={{
           title: 'Trang chủ',
@@ -42,7 +42,7 @@ export const MainTabs = () => {
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
+        name="Profile"
         component={ProfileScreen}
         options={{
           title: 'Tài khoản',
@@ -53,7 +53,7 @@ export const MainTabs = () => {
         }}
       />
       <Tab.Screen
-        name="SettingsTab"
+        name="Settings"
         component={SettingsScreen}
         options={{
           title: 'Cài đặt',
