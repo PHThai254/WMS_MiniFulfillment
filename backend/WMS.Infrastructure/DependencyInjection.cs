@@ -35,6 +35,9 @@ public static class DependencyInjection
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddScoped<IUserManagementService, UserManagementService>();
 
+        // External APIs
+        services.AddHttpClient<IAiOcrService, GeminiOcrService>();
+
         return services;
     }
 }
