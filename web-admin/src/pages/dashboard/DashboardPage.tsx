@@ -59,7 +59,7 @@ export const DashboardPage: React.FC = () => {
 
     return (
         <Space direction="vertical" size="large" style={{ width: '100%', padding: 24 }}>
-            <PageHeader title="Dashboard" subtitle="Tổng quan hệ thống Quản lý Kho WMS" />
+            <PageHeader title="Tổng quan" subtitle="Tổng quan hệ thống Quản lý Kho WMS" />
 
             {kpi?.lowStockAlerts ? (
                 <Alert

@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Select, message, Space, Button, Modal, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from '@ant-design/icons';
 import { PageHeader } from '../../components/common/PageHeader';
 import { BaseTable } from '../../components/common/BaseTable';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import type { IProduct, ICategory } from '../../types/domain';
 import { productService } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
+import { barcodePdfService } from '../../services/barcodePdfService';
 
 const { Option } = Select;
 
@@ -19,6 +20,7 @@ export const ProductsPage: React.FC = () => {
     const [editing, setEditing] = useState<IProduct | null>(null);
     const [filterCategory, setFilterCategory] = useState<string | undefined>();
     const [search, setSearch] = useState('');
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
     const [form] = Form.useForm();
 
     const fetchData = useCallback(async () => {
@@ -49,7 +51,9 @@ export const ProductsPage: React.FC = () => {
             }
             setModalOpen(false);
             fetchData();
-        } catch { message.error('Thao tác thất bại.'); }
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || error?.message || 'Thao tác thất bại.');
+        }
         finally { setSaving(false); }
     };
 
@@ -57,6 +61,48 @@ export const ProductsPage: React.FC = () => {
         await productService.delete(id);
         message.success('Xóa sản phẩm thành công!');
         fetchData();
+    };
+
+    const handlePrintBarcode = (record: IProduct) => {
+        if (!record.barcode) {
+            message.warning('Sản phẩm này chưa có Mã Barcode!');
+            return;
+        }
+        try {
+            barcodePdfService.generateSingleBarcodePdf(
+                record.barcode,
+                `barcode_${record.barcode}.pdf`,
+                record.name
+            );
+            message.success('Đã tải xuống file PDF mã vạch!');
+        } catch (error) {
+            message.error((error as Error).message);
+        }
+    };
+
+    const handlePrintMultipleBarcodes = () => {
+        if (selectedRowKeys.length === 0) {
+            message.warning('Vui lòng chọn ít nhất 1 sản phẩm!');
+            return;
+        }
+
+        const selectedProducts = products.filter(p => selectedRowKeys.includes(p.id));
+        const itemsToPrint = selectedProducts
+            .filter(p => !!p.barcode)
+            .map(p => ({ barcode: p.barcode, name: p.name }));
+
+        if (itemsToPrint.length === 0) {
+            message.warning('Các sản phẩm được chọn chưa có Mã Barcode!');
+            return;
+        }
+
+        try {
+            barcodePdfService.generateMultipleBarcodesPdf(itemsToPrint, 'bulk_barcodes.pdf');
+            message.success(`Đã tải xuống file PDF chứa ${itemsToPrint.length} mã vạch!`);
+            setSelectedRowKeys([]); // clear selection after print
+        } catch (error) {
+            message.error((error as Error).message);
+        }
     };
 
     const columns = [
@@ -68,6 +114,7 @@ export const ProductsPage: React.FC = () => {
             title: 'Hành động', key: 'action',
             render: (_: unknown, record: IProduct) => (
                 <Space>
+                    <Button icon={<PrinterOutlined />} size="small" onClick={() => handlePrintBarcode(record)}>In Barcode</Button>
                     <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)}>Sửa</Button>
                     <Popconfirm title="Xác nhận xóa sản phẩm này?" onConfirm={() => handleDelete(record.id)} okText="Xóa" cancelText="Hủy">
                         <Button icon={<DeleteOutlined />} size="small" danger>Xóa</Button>
@@ -87,9 +134,27 @@ export const ProductsPage: React.FC = () => {
                         {categories.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
                     </Select>
                 </Space>
-                <PrimaryButton icon={<PlusOutlined />} onClick={openCreate}>Thêm Sản phẩm</PrimaryButton>
+                <Space>
+                    {selectedRowKeys.length > 0 && (
+                        <Button icon={<PrinterOutlined />} onClick={handlePrintMultipleBarcodes}>
+                            In mã vạch đã chọn ({selectedRowKeys.length})
+                        </Button>
+                    )}
+                    <PrimaryButton icon={<PlusOutlined />} onClick={openCreate}>Thêm Sản phẩm</PrimaryButton>
+                </Space>
             </Space>
-            <BaseTable columns={columns} dataSource={products} rowKey="id" loading={loading} />
+            <BaseTable
+                columns={columns}
+                dataSource={products}
+                rowKey="id"
+                loading={loading}
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: (newSelectedRowKeys) => {
+                        setSelectedRowKeys(newSelectedRowKeys);
+                    },
+                }}
+            />
             <Modal title={editing ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'} open={modalOpen} onCancel={() => setModalOpen(false)}
                 footer={[
                     <Button key="cancel" onClick={() => setModalOpen(false)}>Hủy</Button>,
