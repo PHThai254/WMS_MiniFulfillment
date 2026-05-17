@@ -52,6 +52,14 @@ public class ReceiptsController : ControllerBase
         return Ok(ApiResponse<ReceiptDto>.Succeeded(data, "Duyệt QC thành công."));
     }
 
+    [HttpPost("{id:guid}/approve-ocr")]
+    [Authorize(Roles = "QA_QC,Admin")]
+    public async Task<ActionResult<ApiResponse<ReceiptDto>>> ApproveOcr(Guid id, [FromBody] ApproveOcrRequest request)
+    {
+        var data = await _service.ApproveOcrAsync(id, request);
+        return Ok(ApiResponse<ReceiptDto>.Succeeded(data, "Lưu kết quả OCR và duyệt phiếu thành công."));
+    }
+
     [HttpPost("{id:guid}/complete-putaway")]
     [Authorize(Roles = "Staff,Admin")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> CompletePutAway(Guid id)

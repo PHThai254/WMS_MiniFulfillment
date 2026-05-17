@@ -46,6 +46,16 @@ public record ApproveReceiptRequest(
     List<UpdateReceiptDetailActualRequest> Details
 );
 
+public record ApproveOcrRequest(
+    List<OcrReceiptDetailRequest> Details
+);
+
+public record OcrReceiptDetailRequest(
+    Guid ProductId,
+    int ActualQuantity,
+    Guid? ZoneId
+);
+
 public record OcrResultDto(
     string RawJson,
     List<OcrLineItemDto> Items,
