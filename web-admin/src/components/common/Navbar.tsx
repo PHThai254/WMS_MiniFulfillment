@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed = false, onToggle }) =
         {
             key: 'profile',
             icon: <IdcardOutlined />,
-            label: 'Hồ sơ cá nhân (Profile)',
+            label: 'Hồ sơ cá nhân',
             onClick: () => navigate('/profile'),
         },
         {
@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed = false, onToggle }) =
         {
             key: 'logout',
             icon: <LogoutOutlined />,
-            label: 'Đăng xuất (Logout)',
+            label: 'Đăng xuất',
             onClick: handleLogout,
             danger: true,
         },
@@ -69,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed = false, onToggle }) =
                             />
                         )}
                         <Typography.Title level={4} style={{ color: '#fff', margin: 0, letterSpacing: '1px' }}>
-                            WMS Admin
+                            Quản trị WMS
                         </Typography.Title>
                     </Space>
                 </Col>

@@ -27,64 +27,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         {
             key: 'dashboard',
             icon: <DashboardOutlined />,
-            label: 'Dashboard',
+            label: 'Tổng quan',
             onClick: () => navigate('/dashboard'),
         },
     ];
 
-    // Master Data - All roles can see 
-    menuItems.push({
-        key: 'master-data',
-        icon: <DatabaseOutlined />,
-        label: 'Master Data',
-        children: [
-            {
-                key: 'warehouses',
-                label: 'Warehouses',
-                onClick: () => navigate('/warehouses'),
-            },
-            {
-                key: 'zones',
-                label: 'Zones',
-                onClick: () => navigate('/zones'),
-            },
-            {
-                key: 'products',
-                label: 'Products',
-                onClick: () => navigate('/products'),
-            },
-            {
-                key: 'categories',
-                label: 'Categories',
-                onClick: () => navigate('/categories'),
-            },
-            {
-                key: 'suppliers',
-                label: 'Suppliers',
-                onClick: () => navigate('/suppliers'),
-            },
-            {
-                key: 'customers',
-                label: 'Customers',
-                onClick: () => navigate('/customers'),
-            },
-        ],
-    });
+    // Master Data - All roles can see
+    if (user?.role === 'Admin') {
+        menuItems.push({
+            key: 'master-data',
+            icon: <DatabaseOutlined />,
+            label: 'Dữ liệu nền',
+            children: [
+                {
+                    key: 'warehouses',
+                    label: 'Kho bãi',
+                    onClick: () => navigate('/warehouses'),
+                },
+                {
+                    key: 'zones',
+                    label: 'Khu vực kho',
+                    onClick: () => navigate('/zones'),
+                },
+                {
+                    key: 'products',
+                    label: 'Sản phẩm',
+                    onClick: () => navigate('/products'),
+                },
+                {
+                    key: 'categories',
+                    label: 'Danh mục',
+                    onClick: () => navigate('/categories'),
+                },
+                {
+                    key: 'suppliers',
+                    label: 'Nhà cung cấp',
+                    onClick: () => navigate('/suppliers'),
+                },
+                {
+                    key: 'customers',
+                    label: 'Khách hàng',
+                    onClick: () => navigate('/customers'),
+                },
+            ],
+        });
+    }
 
     // Operations
     menuItems.push({
         key: 'operations',
         icon: <FileTextOutlined />,
-        label: 'Operations',
+        label: 'Vận hành',
         children: [
             {
                 key: 'receipts',
-                label: 'Receipts (Inbound)',
+                label: 'Phiếu Nhập (Inbound)',
                 onClick: () => navigate('/receipts'),
             },
             {
                 key: 'issues',
-                label: 'Issues (Outbound)',
+                label: 'Phiếu Xuất (Outbound)',
                 onClick: () => navigate('/issues'),
             },
         ],
@@ -94,16 +96,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     menuItems.push({
         key: 'inventory',
         icon: <ShopOutlined />,
-        label: 'Inventory',
+        label: 'Tồn kho',
         children: [
             {
                 key: 'stock-summary',
-                label: 'Stock Summary',
+                label: 'Tổng hợp Tồn kho',
                 onClick: () => navigate('/inventory/stock-summary'),
             },
             {
                 key: 'transactions',
-                label: 'Transactions',
+                label: 'Lịch sử Giao dịch',
                 onClick: () => navigate('/inventory/transactions'),
             },
         ],
@@ -113,16 +115,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     menuItems.push({
         key: 'analytics',
         icon: <BarChartOutlined />,
-        label: 'Analytics',
+        label: 'Phân tích & Báo cáo',
         children: [
             {
                 key: 'reports',
-                label: 'Reports',
+                label: 'Báo cáo',
                 onClick: () => navigate('/analytics/reports'),
             },
             {
                 key: 'kpis',
-                label: 'KPIs',
+                label: 'Chỉ số KPIs',
                 onClick: () => navigate('/analytics/kpis'),
             },
         ],
@@ -133,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         menuItems.push({
             key: 'users',
             icon: <UserOutlined />,
-            label: 'User Management',
+            label: 'Quản lý Nhân sự',
             onClick: () => navigate('/users'),
         });
     }

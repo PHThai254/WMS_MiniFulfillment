@@ -12,13 +12,13 @@ public record ProductDto(
 
 public record CreateProductRequest(
     string Name,
-    string SKU,
+    string? SKU,
     Guid CategoryId
 );
 
 public record UpdateProductRequest(
     string Name,
-    string SKU,
+    string? SKU,
     Guid CategoryId
 );
 

@@ -16,10 +16,10 @@ export const LoginPage: React.FC = () => {
         setLoading(true);
         try {
             await login(values.username, values.password);
-            message.success('Login successful');
+            message.success('Đăng nhập thành công');
             navigate('/dashboard');
         } catch (error: any) {
-            message.error(error.response?.data?.message || 'Login failed');
+            message.error(error.response?.data?.message || 'Đăng nhập thất bại');
         } finally {
             setLoading(false);
         }
@@ -28,8 +28,8 @@ export const LoginPage: React.FC = () => {
     return (
         <AuthLayout>
             <Space direction="vertical" size="small">
-                <Typography.Title level={3}>WMS Admin</Typography.Title>
-                <Typography.Text type="secondary">Warehouse Management System</Typography.Text>
+                <Typography.Title level={3}>Quản trị WMS</Typography.Title>
+                <Typography.Text type="secondary">Hệ thống Quản lý Kho</Typography.Text>
             </Space>
 
             <Form
@@ -40,11 +40,11 @@ export const LoginPage: React.FC = () => {
             >
                 <Form.Item
                     name="username"
-                    rules={[{ required: true, message: 'Please enter username' }]}
+                    rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
                 >
                     <Input
                         prefix={<UserOutlined />}
-                        placeholder="Username"
+                        placeholder="Tên đăng nhập"
                         size="large"
                         disabled={loading}
                     />
@@ -52,11 +52,11 @@ export const LoginPage: React.FC = () => {
 
                 <Form.Item
                     name="password"
-                    rules={[{ required: true, message: 'Please enter password' }]}
+                    rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
                 >
                     <Input.Password
                         prefix={<LockOutlined />}
-                        placeholder="Password"
+                        placeholder="Mật khẩu"
                         size="large"
                         disabled={loading}
                     />
@@ -68,14 +68,14 @@ export const LoginPage: React.FC = () => {
                         block
                         loading={loading}
                     >
-                        Login
+                        Đăng nhập
                     </PrimaryButton>
                 </Form.Item>
             </Form>
 
             <Space direction="vertical" size="small">
-                <Typography.Text type="secondary">Demo credentials:</Typography.Text>
-                <Typography.Text type="secondary">Username: admin | Password: admin123</Typography.Text>
+                <Typography.Text type="secondary">Tài khoản mẫu:</Typography.Text>
+                <Typography.Text type="secondary">Tên đăng nhập: admin | Mật khẩu: admin123</Typography.Text>
             </Space>
         </AuthLayout>
     );

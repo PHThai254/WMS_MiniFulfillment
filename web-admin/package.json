@@ -15,6 +15,7 @@
     "axios": "^1.15.0",
     "dayjs": "^1.11.20",
     "jsbarcode": "^3.12.3",
+    "jspdf": "^4.2.1",
     "react": "^18.2.0",
     "react-barcode": "^1.6.1",
     "react-dom": "^18.2.0",
