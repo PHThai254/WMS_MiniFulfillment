@@ -37,9 +37,12 @@ public class ReceiptService : IReceiptService
 
         var receipt = new Receipt
         {
-            Id = Guid.NewGuid(), WarehouseId = request.WarehouseId,
-            SupplierId = request.SupplierId, CreatedBy = createdBy,
-            Status = ReceiptStatus.Draft, CreatedAt = DateTime.UtcNow
+            Id = Guid.NewGuid(),
+            WarehouseId = request.WarehouseId,
+            SupplierId = request.SupplierId,
+            CreatedBy = createdBy,
+            Status = ReceiptStatus.Draft,
+            CreatedAt = DateTime.UtcNow
         };
 
         foreach (var d in request.Details)
@@ -48,8 +51,11 @@ public class ReceiptService : IReceiptService
                 throw new ArgumentException($"Sản phẩm {d.ProductId} không tồn tại.");
             receipt.ReceiptDetails.Add(new ReceiptDetail
             {
-                Id = Guid.NewGuid(), ReceiptId = receipt.Id,
-                ProductId = d.ProductId, ExpectedQuantity = d.ExpectedQuantity, ActualQuantity = 0
+                Id = Guid.NewGuid(),
+                ReceiptId = receipt.Id,
+                ProductId = d.ProductId,
+                ExpectedQuantity = d.ExpectedQuantity,
+                ActualQuantity = 0
             });
         }
 
@@ -77,6 +83,57 @@ public class ReceiptService : IReceiptService
         return (await GetByIdAsync(receipt.Id))!;
     }
 
+    public async Task<ReceiptDto> ApproveOcrAsync(Guid id, ApproveOcrRequest request)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var receipt = await _db.Receipts.Include(r => r.ReceiptDetails).FirstOrDefaultAsync(r => r.Id == id)
+                ?? throw new KeyNotFoundException("Không tìm thấy phiếu nhập.");
+
+            if (receipt.Status != ReceiptStatus.Draft)
+                throw new InvalidOperationException("Chỉ có thể duyệt phiếu ở trạng thái Draft.");
+
+            // Update existing or add new details from OCR result
+            foreach (var ocrItem in request.Details)
+            {
+                var existingDetail = receipt.ReceiptDetails.FirstOrDefault(d => d.ProductId == ocrItem.ProductId);
+                if (existingDetail != null)
+                {
+                    existingDetail.ActualQuantity = ocrItem.ActualQuantity;
+                    existingDetail.ZoneId = ocrItem.ZoneId;
+                }
+                else
+                {
+                    // Check if Product exists
+                    if (!await _db.Products.AnyAsync(p => p.Id == ocrItem.ProductId))
+                        throw new ArgumentException($"Sản phẩm {ocrItem.ProductId} không tồn tại.");
+
+                    receipt.ReceiptDetails.Add(new ReceiptDetail
+                    {
+                        Id = Guid.NewGuid(),
+                        ReceiptId = receipt.Id,
+                        ProductId = ocrItem.ProductId,
+                        ExpectedQuantity = 0,
+                        ActualQuantity = ocrItem.ActualQuantity,
+                        ZoneId = ocrItem.ZoneId
+                    });
+                }
+            }
+
+            receipt.Status = ReceiptStatus.QC_Checked;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return (await GetByIdAsync(receipt.Id))!;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<ReceiptDto> CompletePutAwayAsync(Guid id)
     {
         await using var tx = await _db.Database.BeginTransactionAsync();
@@ -96,9 +153,12 @@ public class ReceiptService : IReceiptService
                 {
                     _db.Inventories.Add(new Inventory
                     {
-                        Id = Guid.NewGuid(), WarehouseId = receipt.WarehouseId,
-                        ZoneId = d.ZoneId!.Value, ProductId = d.ProductId,
-                        Quantity = d.ActualQuantity, LastRestockedDate = DateTime.UtcNow
+                        Id = Guid.NewGuid(),
+                        WarehouseId = receipt.WarehouseId,
+                        ZoneId = d.ZoneId!.Value,
+                        ProductId = d.ProductId,
+                        Quantity = d.ActualQuantity,
+                        LastRestockedDate = DateTime.UtcNow
                     });
                 }
                 else
@@ -109,9 +169,13 @@ public class ReceiptService : IReceiptService
 
                 _db.InventoryTransactions.Add(new InventoryTransaction
                 {
-                    Id = Guid.NewGuid(), ProductId = d.ProductId, ZoneId = d.ZoneId!.Value,
-                    QuantityChange = d.ActualQuantity, TransactionType = "INBOUND",
-                    ReferenceId = receipt.Id, CreatedAt = DateTime.UtcNow
+                    Id = Guid.NewGuid(),
+                    ProductId = d.ProductId,
+                    ZoneId = d.ZoneId!.Value,
+                    QuantityChange = d.ActualQuantity,
+                    TransactionType = "INBOUND",
+                    ReferenceId = receipt.Id,
+                    CreatedAt = DateTime.UtcNow
                 });
             }
             receipt.Status = ReceiptStatus.Completed;
@@ -173,15 +237,22 @@ public class IssueService : IIssueService
 
         var issue = new Issue
         {
-            Id = Guid.NewGuid(), WarehouseId = request.WarehouseId, CustomerId = request.CustomerId,
-            CreatedBy = createdBy, Status = IssueStatus.Pending, CreatedAt = DateTime.UtcNow
+            Id = Guid.NewGuid(),
+            WarehouseId = request.WarehouseId,
+            CustomerId = request.CustomerId,
+            CreatedBy = createdBy,
+            Status = IssueStatus.Pending,
+            CreatedAt = DateTime.UtcNow
         };
         foreach (var d in request.Details)
         {
             issue.IssueDetails.Add(new IssueDetail
             {
-                Id = Guid.NewGuid(), IssueId = issue.Id,
-                ProductId = d.ProductId, QuantityToPick = d.QuantityToPick, PickedQuantity = 0
+                Id = Guid.NewGuid(),
+                IssueId = issue.Id,
+                ProductId = d.ProductId,
+                QuantityToPick = d.QuantityToPick,
+                PickedQuantity = 0
             });
         }
         _db.Issues.Add(issue);
@@ -254,9 +325,13 @@ public class IssueService : IIssueService
 
             _db.InventoryTransactions.Add(new InventoryTransaction
             {
-                Id = Guid.NewGuid(), ProductId = detail.ProductId,
-                ZoneId = detail.ZoneId ?? Guid.Empty, QuantityChange = -request.PickedQuantity,
-                TransactionType = "OUTBOUND", ReferenceId = issue.Id, CreatedAt = DateTime.UtcNow
+                Id = Guid.NewGuid(),
+                ProductId = detail.ProductId,
+                ZoneId = detail.ZoneId ?? Guid.Empty,
+                QuantityChange = -request.PickedQuantity,
+                TransactionType = "OUTBOUND",
+                ReferenceId = issue.Id,
+                CreatedAt = DateTime.UtcNow
             });
 
             if (issue.IssueDetails.All(d => d.PickedQuantity >= d.QuantityToPick))

@@ -8,6 +8,7 @@ public interface IReceiptService
     Task<ReceiptDto?> GetByIdAsync(Guid id);
     Task<ReceiptDto> CreateAsync(CreateReceiptRequest request, string createdBy);
     Task<ReceiptDto> ApproveQcAsync(Guid id, ApproveReceiptRequest request);
+    Task<ReceiptDto> ApproveOcrAsync(Guid id, ApproveOcrRequest request);
     Task<ReceiptDto> CompletePutAwayAsync(Guid id);
     Task<OcrResultDto> RunOcrAsync(Stream imageStream, string fileName);
 }
