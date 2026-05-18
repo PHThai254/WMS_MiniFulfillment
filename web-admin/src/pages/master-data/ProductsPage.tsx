@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, Select, message, Space, Button, Modal, Popconfirm } from 'antd';
+import { Form, Input, Select, message, Space, Modal, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from '@ant-design/icons';
 import { PageHeader } from '../../components/common/PageHeader';
 import { BaseTable } from '../../components/common/BaseTable';
-import { PrimaryButton } from '../../components/common/PrimaryButton';
+import { PrimaryButton, DefaultButton  } from '../../components/common';
 import type { IProduct, ICategory } from '../../types/domain';
 import { productService } from '../../services/productService';
 import { categoryService } from '../../services/categoryService';
@@ -114,10 +114,10 @@ export const ProductsPage: React.FC = () => {
             title: 'Hành động', key: 'action',
             render: (_: unknown, record: IProduct) => (
                 <Space>
-                    <Button icon={<PrinterOutlined />} size="small" onClick={() => handlePrintBarcode(record)}>In Barcode</Button>
-                    <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(record)}>Sửa</Button>
+                    <PrimaryButton icon={<PrinterOutlined />} size="small" onClick={() => handlePrintBarcode(record)}>In Barcode</PrimaryButton>
+                    <PrimaryButton icon={<EditOutlined />} size="small" onClick={() => openEdit(record)}>Sửa</PrimaryButton>
                     <Popconfirm title="Xác nhận xóa sản phẩm này?" onConfirm={() => handleDelete(record.id)} okText="Xóa" cancelText="Hủy">
-                        <Button icon={<DeleteOutlined />} size="small" danger>Xóa</Button>
+                        <PrimaryButton icon={<DeleteOutlined />} size="small" danger>Xóa</PrimaryButton>
                     </Popconfirm>
                 </Space>
             )
@@ -136,9 +136,9 @@ export const ProductsPage: React.FC = () => {
                 </Space>
                 <Space>
                     {selectedRowKeys.length > 0 && (
-                        <Button icon={<PrinterOutlined />} onClick={handlePrintMultipleBarcodes}>
+                        <PrimaryButton icon={<PrinterOutlined />} onClick={handlePrintMultipleBarcodes}>
                             In mã vạch đã chọn ({selectedRowKeys.length})
-                        </Button>
+                        </PrimaryButton>
                     )}
                     <PrimaryButton icon={<PlusOutlined />} onClick={openCreate}>Thêm Sản phẩm</PrimaryButton>
                 </Space>
@@ -157,8 +157,8 @@ export const ProductsPage: React.FC = () => {
             />
             <Modal title={editing ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'} open={modalOpen} onCancel={() => setModalOpen(false)}
                 footer={[
-                    <Button key="cancel" onClick={() => setModalOpen(false)}>Hủy</Button>,
-                    <Button key="save" type="primary" loading={saving} onClick={handleSave}>Lưu</Button>
+                    <DefaultButton key="cancel" onClick={() => setModalOpen(false)}>Hủy</DefaultButton>,
+                    <PrimaryButton key="save" type="primary" loading={saving} onClick={handleSave}>Lưu</PrimaryButton>
                 ]}>
                 <Form form={form} layout="vertical">
                     <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true, message: 'Nhập tên' }]}>
