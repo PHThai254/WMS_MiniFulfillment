@@ -14,3 +14,22 @@ export interface PaginatedResponse<T> {
 }
 
 export interface PaginatedApiResponse<T> extends ApiResponse<PaginatedResponse<T>> { }
+
+// OCR Related Types
+export interface OcrItemDto {
+    productName?: string;
+    productNameConfidence?: number;
+    quantity: number;
+    quantityConfidence?: number;
+    unitPrice: number;
+    unitPriceConfidence?: number;
+}
+
+export interface ReceiptOcrDto {
+    supplierName?: string;
+    supplierNameConfidence?: number;
+    invoiceDate?: string;
+    invoiceDateConfidence?: number;
+    items: OcrItemDto[];
+    suspiciousFields: string[];
+}

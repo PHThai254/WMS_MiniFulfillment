@@ -11,6 +11,11 @@ public interface IReceiptService
     Task<ReceiptDto> ApproveOcrAsync(Guid id, ApproveOcrRequest request);
     Task<ReceiptDto> CompletePutAwayAsync(Guid id);
     Task<OcrResultDto> RunOcrAsync(Stream imageStream, string fileName);
+    
+    /// <summary>
+    /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
+    /// </summary>
+    Task<int> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy);
 }
 
 public interface IIssueService

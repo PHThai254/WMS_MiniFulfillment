@@ -37,7 +37,31 @@ namespace WMS.Infrastructure.Services
                         {
                             new
                             {
-                                text = "Extract data from this invoice image and return a JSON object with the following fields: supplierName (string), invoiceDate (string), and items (an array of objects containing productName (string), quantity (number), and unitPrice (number))."
+                                text = @"Extract data from this invoice image and return ONLY a valid JSON object (no markdown or extra text) with the following structure:
+{
+  ""supplierName"": ""string (supplier/vendor name)"",
+  ""supplierNameConfidence"": 0.95 (confidence score 0-1),
+  ""invoiceDate"": ""YYYY-MM-DD (invoice date)"",
+  ""invoiceDateConfidence"": 0.9,
+  ""items"": [
+    {
+      ""productName"": ""string"",
+      ""productNameConfidence"": 0.85,
+      ""quantity"": number,
+      ""quantityConfidence"": 0.92,
+      ""unitPrice"": number,
+      ""unitPriceConfidence"": 0.88
+    }
+  ],
+  ""suspiciousFields"": [""field_name""] (fields with confidence < 0.7)
+}
+
+IMPORTANT:
+- Return ONLY valid JSON, no markdown code blocks or explanations
+- Mark fields with confidence < 0.7 in suspiciousFields array
+- If uncertain about a field, set confidence < 0.7 and include in suspiciousFields
+- Use null for missing data
+- Ensure all numbers are valid JSON numbers (not strings)"
                             },
                             new
                             {
@@ -54,7 +78,8 @@ namespace WMS.Infrastructure.Services
                 },
                 generationConfig = new
                 {
-                    responseMimeType = "application/json"
+                    responseMimeType = "application/json",
+                    temperature = 0.2f
                 }
             };
 

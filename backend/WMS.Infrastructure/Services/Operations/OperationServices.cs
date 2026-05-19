@@ -197,6 +197,115 @@ public class ReceiptService : IReceiptService
         return new OcrResultDto("{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100}]}", items, true);
     }
 
+    /// <summary>
+    /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
+    /// Tạo phiếu nhập mới với các chi tiết được cấp phát vào Zone cụ thể
+    /// </summary>
+    public async Task<int> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            // Kiểm tra Supplier
+            if (!await _db.Suppliers.AnyAsync(s => s.Id == request.SupplierId))
+                throw new ArgumentException("Nhà cung cấp không tồn tại.");
+
+            // Kiểm tra tất cả Products và Zones tồn tại
+            foreach (var item in request.Items)
+            {
+                if (!await _db.Products.AnyAsync(p => p.Id == item.ProductId))
+                    throw new ArgumentException($"Sản phẩm {item.ProductId} không tồn tại.");
+
+                if (!await _db.Zones.AnyAsync(z => z.Id == item.ZoneId))
+                    throw new ArgumentException($"Zone {item.ZoneId} không tồn tại.");
+            }
+
+            // Lấy WarehouseId từ User Context (được set qua JWT Token)
+            // Giả sử WarehouseId được lấy từ request hoặc context - ở đây tạm lấy từ Zone
+            var zone = await _db.Zones.FirstAsync(z => z.Id == request.Items.First().ZoneId);
+            var warehouseId = zone.WarehouseId;
+
+            // Tạo phiếu nhập mới
+            var receipt = new Receipt
+            {
+                Id = Guid.NewGuid(),
+                WarehouseId = warehouseId,
+                SupplierId = request.SupplierId,
+                CreatedBy = createdBy,
+                Status = ReceiptStatus.QC_Checked, // Trực tiếp set thành QC_Checked vì đã duyệt
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Thêm chi tiết từ OCR
+            foreach (var item in request.Items)
+            {
+                receipt.ReceiptDetails.Add(new ReceiptDetail
+                {
+                    Id = Guid.NewGuid(),
+                    ReceiptId = receipt.Id,
+                    ProductId = item.ProductId,
+                    ZoneId = item.ZoneId,
+                    ExpectedQuantity = item.Quantity,
+                    ActualQuantity = item.Quantity // Vì đã được duyệt
+                });
+            }
+
+            _db.Receipts.Add(receipt);
+            await _db.SaveChangesAsync();
+
+            // Cập nhật tồn kho ngay lập tức (vì đã duyệt)
+            foreach (var item in request.Items)
+            {
+                var inventory = await _db.Inventories.FirstOrDefaultAsync(i =>
+                    i.WarehouseId == warehouseId &&
+                    i.ZoneId == item.ZoneId &&
+                    i.ProductId == item.ProductId);
+
+                if (inventory == null)
+                {
+                    _db.Inventories.Add(new Inventory
+                    {
+                        Id = Guid.NewGuid(),
+                        WarehouseId = warehouseId,
+                        ZoneId = item.ZoneId,
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        LastRestockedDate = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    inventory.Quantity += item.Quantity;
+                    inventory.LastRestockedDate = DateTime.UtcNow;
+                }
+
+                // Ghi log giao dịch
+                _db.InventoryTransactions.Add(new InventoryTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = item.ProductId,
+                    ZoneId = item.ZoneId,
+                    QuantityChange = item.Quantity,
+                    TransactionType = "INBOUND",
+                    ReferenceId = receipt.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            // Update Receipt status thành Completed
+            receipt.Status = ReceiptStatus.Completed;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return (int)receipt.Id.GetHashCode(); // Return receipt identifier
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
     private static ReceiptDto MapToDto(Receipt r) => new(
         r.Id, r.WarehouseId, r.Warehouse?.Name ?? string.Empty,
         r.SupplierId, r.Supplier?.Name, r.CreatedBy, r.Status, r.CreatedAt,

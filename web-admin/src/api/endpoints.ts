@@ -69,7 +69,12 @@ export const API_ENDPOINTS = {
         create: '/api/receipts',
         approveQc: (id: string) => `/api/receipts/${id}/approve-qc`,
         completePutaway: (id: string) => `/api/receipts/${id}/complete-putaway`,
-        ocr: '/api/receipts/ocr',
+    },
+
+    // OCR (Trích xuất dữ liệu hóa đơn)
+    ocr: {
+        extractInvoice: '/api/ocr/extract',
+        saveReceipt: '/api/receipts/save-from-ocr',
     },
 
     // Issue (Phiếu Xuất)

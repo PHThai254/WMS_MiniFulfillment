@@ -5,28 +5,56 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using WMS.Application.Interfaces;
+using WMS.Application.Wrappers;
 using WMS.Domain.Exceptions;
 
 namespace WMS.API.Controllers;
 
+/// <summary>
+/// OCR Controller - Xử lý Upload ảnh hóa đơn và gửi lên Gemini API
+/// Luồng: Upload ảnh -> Gemini OCR -> Trả về JSON chờ duyệt QA/QC
+/// </summary>
 [ApiController]
-[Route("api/Ocr")]
+[Route("api/[controller]")]
 [Authorize(Roles = "QA_QC, Admin")]
 public class OcrController : ControllerBase
 {
     private readonly IOcrProcessingService _ocrProcessingService;
+    private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
 
     public OcrController(IOcrProcessingService ocrProcessingService)
     {
         _ocrProcessingService = ocrProcessingService;
     }
 
+    /// <summary>
+    /// Upload ảnh hóa đơn và xử lý OCR via Gemini API
+    /// </summary>
+    /// <param name="image">File ảnh hóa đơn (JPEG, PNG, GIF, WebP)</param>
+    /// <returns>ReceiptOcrDto chứa dữ liệu OCR và danh sách field nghi ngờ</returns>
     [HttpPost("extract")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ExtractInvoice(IFormFile image)
     {
         if (image == null || image.Length == 0)
         {
-            return BadRequest("Dữ liệu ảnh không hợp lệ.");
+            return BadRequest(new ApiResponse<object>(false, "Dữ liệu ảnh không hợp lệ"));
+        }
+
+        // Kiểm tra kích thước file
+        if (image.Length > MaxFileSizeBytes)
+        {
+            return BadRequest(new ApiResponse<object>(false, $"Kích thước file vượt quá {MaxFileSizeBytes / (1024 * 1024)}MB"));
+        }
+
+        // Kiểm tra định dạng file
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        var fileExtension = Path.GetExtension(image.FileName).ToLower();
+        if (!Array.Exists(allowedExtensions, ext => ext == fileExtension))
+        {
+            return BadRequest(new ApiResponse<object>(false, $"Định dạng file không được hỗ trợ. Hỗ trợ: {string.Join(", ", allowedExtensions)}"));
         }
 
         try
@@ -38,15 +66,19 @@ public class OcrController : ControllerBase
 
             var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String);
             
-            return Ok(result);
+            return Ok(new ApiResponse<object>(true, "Xử lý OCR thành công", result));
         }
         catch (OcrParsingException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiResponse<object>(false, ex.Message));
         }
-        catch (Exception)
+        catch (ApplicationException ex)
         {
-            return StatusCode(500, "Lỗi hệ thống trong quá trình xử lý OCR.");
+            return StatusCode(500, new ApiResponse<object>(false, "Lỗi gọi Gemini API: " + ex.Message));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<object>(false, "Lỗi hệ thống trong quá trình xử lý OCR: " + ex.Message));
         }
     }
 }

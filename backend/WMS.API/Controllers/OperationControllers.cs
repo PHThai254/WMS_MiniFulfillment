@@ -68,6 +68,26 @@ public class ReceiptsController : ControllerBase
         return Ok(ApiResponse<ReceiptDto>.Succeeded(data, "Hoàn thành cất hàng. Tồn kho đã được cập nhật."));
     }
 
+    /// <summary>
+    /// Lưu Receipt sau khi QA/QC duyệt/sửa dữ liệu OCR
+    /// Luồng: Upload ảnh -> OCR Gemini -> QA/QC duyệt -> Lưu Receipt
+    /// </summary>
+    [HttpPost("save-from-ocr")]
+    [Authorize(Roles = "QA_QC,Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> SaveFromOcr([FromBody] SaveOcrReceiptRequest request)
+    {
+        try
+        {
+            var createdBy = _currentUser.GetCurrentUserId() ?? "system";
+            var receiptId = await _service.SaveReceiptFromOcrAsync(request, createdBy);
+            return Ok(new ApiResponse<object>(true, "Lưu phiếu nhập từ OCR thành công", new { id = receiptId }));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ApiResponse<object>(false, $"Lỗi lưu phiếu nhập: {ex.Message}"));
+        }
+    }
+
     [HttpPost("ocr")]
     [Authorize(Roles = "QA_QC,Admin")]
     public async Task<ActionResult<ApiResponse<OcrResultDto>>> RunOcr(IFormFile image)
