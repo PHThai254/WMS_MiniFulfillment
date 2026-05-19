@@ -23,7 +23,7 @@ interface PickingScannerProps {
 
 export const PickingScanner: React.FC<PickingScannerProps> = ({
   task = {
-    zoneLocation: 'DÃY A - NHƯ CẦU 5 SẢN PHẨM',
+    zoneLocation: 'DÃY A - NHU CẦU 5 SẢN PHẨM',
     expectedBarcode: 'CODE123456',
     quantity: 5,
   },
@@ -167,7 +167,7 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
           <ScannerButton 
             mode="outlined"
             onPress={handleReset}
-            size="medium"
+            size="large"
           >
             Làm lại
           </ScannerButton>
@@ -239,6 +239,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   buttonGroup: {
-    gap: 8,
+     gap: 8,
   },
 });

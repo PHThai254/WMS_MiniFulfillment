@@ -1,64 +1,53 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+
+import { useAuth } from "../context/AuthContext";
 
 export const ProfileScreen = ({ navigation }: any) => {
-  return (
-    <View style={styles.container}>
+    const { user } = useAuth() as any;
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Profile</Text>
-      </View>
+    return (
+        <View style={styles.container}>
 
-      {/* CONTENT */}
-      <View style={styles.content}>
-        <Text>Tên: Admin</Text>
-        <Text>Email: admin@gmail.com</Text>
-      </View>
+            {/* HEADER */}
+            <View style={styles.header}>
+                <Text style={styles.headerText}>Profile</Text>
+            </View>
 
-      {/* FOOTER */}
-      <View style={styles.footer}>
+            {/* CONTENT */}
+            <View style={styles.content}>
+                {/* Render dữ liệu thật chuẩn khớp với Backend WMS */}
+                <Text style={styles.text}>Tài khoản: {user?.username || "Đang tải..."}</Text>
+                <Text style={styles.text}>Chức vụ: {user?.role || "Chưa rõ"}</Text>
+                <Text style={styles.text}>Kho làm việc: {user?.warehouseName || "Chưa phân bổ"}</Text>
+            </View>
 
-        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
-          <Text style={styles.icon}>🏠</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-          <Text style={styles.icon}>👤</Text>
-        </TouchableOpacity>
-
-      </View>
-
-    </View>
-  );
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    height: 80,
-    backgroundColor: "#4A90E2",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerText: {
-    fontSize: 22,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footer: {
-    height: 70,
-    backgroundColor: "#ccc",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
-  icon: {
-    fontSize: 30,
-  },
+    container: { flex: 1 },
+    header: {
+        height: 80,
+        backgroundColor: "#4A90E2",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    headerText: {
+        fontSize: 22,
+        color: "#fff",
+        fontWeight: "bold",
+    },
+    content: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    // Thêm style cho text để chữ to rõ ràng, chuyên nghiệp hơn
+    text: {
+        fontSize: 18,
+        marginVertical: 8,
+        color: "#333",
+    }
 });

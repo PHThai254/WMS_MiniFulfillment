@@ -26,24 +26,38 @@ export const LoginScreen = ({ navigation }: any) => {
         Password: password
       });
 
-      // 2. Chặn cổng kiểm tra biến 'success' do C# trả về
-      if (response.data.success) {
-        // Đăng nhập thật sự thành công, bóc tách token
-        const { accessToken, refreshToken } = response.data.data;
+        // 2. Chặn cổng kiểm tra biến 'success' do C# trả về
+        if (response.data.success) {
+            const { accessToken, refreshToken } = response.data.data;
 
-        // Lưu token vào SecureStore
-        await SecureStore.setItemAsync('accessToken', accessToken);
-        await SecureStore.setItemAsync('refreshToken', refreshToken);
+            await SecureStore.setItemAsync('accessToken', accessToken);
+            await SecureStore.setItemAsync('refreshToken', refreshToken);
 
-        console.log("✅ Đăng nhập thành công, Token đã được lưu!");
-        
-        // Trigger Navigation sang MainTabs
-        await signIn();
-      } else {
-        // Đăng nhập thất bại (Sai pass, khóa tài khoản...) -> Báo lỗi rành mạch
-        console.warn("⚠️ Đăng nhập thất bại:", response.data.message);
-        Alert.alert("Đăng nhập thất bại", response.data.message);
-      }
+            console.log("✅ Đăng nhập thành công, Token đã được lưu!");
+
+            try { 
+                const meResponse = await apiClient.get('/api/Auth/me', {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
+
+                if (meResponse.data.success) {
+                    const userData = meResponse.data.data;
+
+                    await signIn({
+                        username: userData.username,
+                        role: userData.role,
+                        warehouseName: userData.warehouseName
+                    });
+                }
+            } catch (e) {
+                console.error("Không kéo được thông tin user:", e);
+                await signIn({ username: username.trim(), role: "Unknown" });
+            }
+
+        } else {
+            console.warn("⚠️ Đăng nhập thất bại:", response.data.message);
+            Alert.alert("Đăng nhập thất bại", response.data.message);
+        }
 
     } catch (error: any) {
       // 3. Xử lý các lỗi sập mạng, sập server (HTTP 4xx, 5xx)

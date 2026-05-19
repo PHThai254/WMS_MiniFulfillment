@@ -143,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     return (
         <Layout.Sider
             collapsed={collapsed}
-            width={200}
+            width={250}
             theme="light"
         >
             <Menu

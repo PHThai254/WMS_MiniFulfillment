@@ -15,7 +15,7 @@ namespace WMS.Application.DTOs.Operations
         /// </summary>
         [Required(ErrorMessage = "SupplierId là bắt buộc")]
         [JsonPropertyName("supplierId")]
-        public int SupplierId { get; set; }
+        public Guid SupplierId { get; set; }
 
         /// <summary>
         /// Ngày hóa đơn (sau khi QA/QC có thể sửa)
@@ -49,14 +49,14 @@ namespace WMS.Application.DTOs.Operations
         /// </summary>
         [Required(ErrorMessage = "ProductId là bắt buộc")]
         [JsonPropertyName("productId")]
-        public int ProductId { get; set; }
+        public Guid ProductId { get; set; }
 
         /// <summary>
         /// ID Zone - nơi cần cất hàng
         /// </summary>
         [Required(ErrorMessage = "ZoneId là bắt buộc")]
         [JsonPropertyName("zoneId")]
-        public int ZoneId { get; set; }
+        public Guid ZoneId { get; set; }
 
         /// <summary>
         /// Số lượng hàng (được sửa từ OCR)

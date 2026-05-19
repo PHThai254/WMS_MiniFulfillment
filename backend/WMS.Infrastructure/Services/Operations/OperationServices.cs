@@ -201,7 +201,7 @@ public class ReceiptService : IReceiptService
     /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
     /// Tạo phiếu nhập mới với các chi tiết được cấp phát vào Zone cụ thể
     /// </summary>
-    public async Task<int> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy)
+    public async Task<Guid> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy)
     {
         await using var tx = await _db.Database.BeginTransactionAsync();
         try
@@ -297,7 +297,7 @@ public class ReceiptService : IReceiptService
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
 
-            return (int)receipt.Id.GetHashCode(); // Return receipt identifier
+            return receipt.Id; // Return receipt identifier
         }
         catch
         {

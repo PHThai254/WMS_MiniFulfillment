@@ -66,7 +66,7 @@ public class OcrController : ControllerBase
 
             var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String);
             
-            return Ok(new ApiResponse<object>(true, "Xử lý OCR thành công", result));
+            return Ok(new ApiResponse<object>(result, "Xử lý OCR thành công"));
         }
         catch (OcrParsingException ex)
         {

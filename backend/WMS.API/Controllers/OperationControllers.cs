@@ -80,7 +80,7 @@ public class ReceiptsController : ControllerBase
         {
             var createdBy = _currentUser.GetCurrentUserId() ?? "system";
             var receiptId = await _service.SaveReceiptFromOcrAsync(request, createdBy);
-            return Ok(new ApiResponse<object>(true, "Lưu phiếu nhập từ OCR thành công", new { id = receiptId }));
+            return Ok(new ApiResponse<object>(new { id = receiptId }, "Lưu phiếu nhập từ OCR thành công"));
         }
         catch (Exception ex)
         {

@@ -15,7 +15,7 @@ public interface IReceiptService
     /// <summary>
     /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
     /// </summary>
-    Task<int> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy);
+    Task<Guid> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy);
 }
 
 public interface IIssueService
