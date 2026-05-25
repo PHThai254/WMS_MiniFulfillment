@@ -10,6 +10,7 @@ public record InventoryDto(
     string ProductName,
     string ProductBarcode,
     string ProductSKU,
+    decimal ProductPrice, 
     int Quantity,
     DateTime LastRestockedDate
 );
@@ -19,6 +20,7 @@ public record StockSummaryDto(
     string ProductName,
     string ProductBarcode,
     string ProductSKU,
+    decimal ProductPrice,
     int TotalQuantity,
     List<StockByZoneDto> StockByZone
 );

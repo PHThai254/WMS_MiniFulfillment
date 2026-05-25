@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 namespace WMS.Domain.Entities;
     public class Product {
         public Guid Id { get; set; }
@@ -8,4 +9,7 @@ namespace WMS.Domain.Entities;
         
         public Guid CategoryId { get; set; }
         public Category? Category { get; set; }
+
+        [Column(TypeName = "decimal(18,0)")]
+        public decimal Price { get; set; }
     }

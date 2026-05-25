@@ -149,39 +149,53 @@ public class ProductService : IProductService
             query = query.Where(p => p.Name.Contains(search) || p.SKU.Contains(search) || p.Barcode.Contains(search));
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId.Value);
-        return await query.Select(p => new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category!.Name, p.ImagePath)).ToListAsync();
+            
+        // Đã bổ sung p.Price vào tham số thứ 5
+        return await query.Select(p => new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.Price, p.CategoryId, p.Category!.Name, p.ImagePath)).ToListAsync();
     }
 
     public async Task<ProductDto?> GetByIdAsync(Guid id)
     {
         var p = await _db.Products.Include(p => p.Category).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
+        // Đã bổ sung p.Price
+        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.Price, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
     }
 
     public async Task<ProductDto?> GetByBarcodeAsync(string barcode)
     {
         var p = await _db.Products.Include(p => p.Category).AsNoTracking().FirstOrDefaultAsync(x => x.Barcode == barcode);
-        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
+        // Đã bổ sung p.Price
+        return p is null ? null : new ProductDto(p.Id, p.SKU, p.Barcode, p.Name, p.Price, p.CategoryId, p.Category?.Name ?? string.Empty, p.ImagePath);
     }
 
     public async Task<ProductDto> CreateAsync(CreateProductRequest request)
     {
         var barcode = GenerateBarcode();
         var sku = string.IsNullOrEmpty(request.SKU) ? $"SKU-{DateTime.Now:yyyyMMddHHmmss}" : request.SKU;
-        var product = new Product { Id = Guid.NewGuid(), Name = request.Name, SKU = sku, Barcode = barcode, CategoryId = request.CategoryId };
+        
+        // Cập nhật Entity: Bổ sung Price = request.Price
+        var product = new Product { Id = Guid.NewGuid(), Name = request.Name, SKU = sku, Barcode = barcode, Price = request.Price, CategoryId = request.CategoryId };
+        
         _db.Products.Add(product);
         await _db.SaveChangesAsync();
         var cat = await _db.Categories.FindAsync(request.CategoryId);
-        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, cat?.Name ?? string.Empty, product.ImagePath);
+        
+        // Đã bổ sung product.Price
+        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.Price, product.CategoryId, cat?.Name ?? string.Empty, product.ImagePath);
     }
 
     public async Task<ProductDto> UpdateAsync(Guid id, UpdateProductRequest request)
     {
         var product = await _db.Products.Include(p => p.Category).FirstOrDefaultAsync(x => x.Id == id)
             ?? throw new KeyNotFoundException("Không tìm thấy sản phẩm.");
-        product.Name = request.Name; product.SKU = request.SKU; product.CategoryId = request.CategoryId;
+
+        // Cập nhật Entity: Bổ sung gán product.Price = request.Price
+        product.Name = request.Name; product.SKU = request.SKU ?? string.Empty; product.CategoryId = request.CategoryId; product.Price = request.Price;
+        
         await _db.SaveChangesAsync();
-        return new ProductDto(product.Id, product.SKU, product.Barcode, product.Name, product.CategoryId, product.Category?.Name ?? string.Empty, product.ImagePath);
+        
+        // Đã bổ sung product.Price
+        return new ProductDto(product.Id, product.SKU ?? string.Empty, product.Barcode ?? string.Empty, product.Name, product.Price, product.CategoryId, product.Category?.Name ?? string.Empty, product.ImagePath);
     }
 
     public async Task DeleteAsync(Guid id)

@@ -22,7 +22,8 @@ public record ReceiptDetailDto(
     Guid? ZoneId,
     string? ZoneName,
     int ExpectedQuantity,
-    int ActualQuantity
+    int ActualQuantity,
+    decimal UnitPrice 
 );
 
 public record CreateReceiptRequest(
@@ -33,7 +34,8 @@ public record CreateReceiptRequest(
 
 public record CreateReceiptDetailRequest(
     Guid ProductId,
-    int ExpectedQuantity
+    int ExpectedQuantity,
+    decimal UnitPrice // 📌 BỔ SUNG: Hứng giá trị nhập từ form của Đức Anh
 );
 
 public record UpdateReceiptDetailActualRequest(
@@ -53,6 +55,7 @@ public record ApproveOcrRequest(
 public record OcrReceiptDetailRequest(
     Guid ProductId,
     int ActualQuantity,
+    decimal UnitPrice, // 📌 BỔ SUNG: Phục vụ AI tự điền giá
     Guid? ZoneId
 );
 
@@ -65,5 +68,6 @@ public record OcrResultDto(
 public record OcrLineItemDto(
     string ProductName,
     int Quantity,
+    decimal UnitPrice, 
     bool IsLowConfidence
 );

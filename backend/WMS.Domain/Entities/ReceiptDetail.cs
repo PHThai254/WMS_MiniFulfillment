@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 namespace WMS.Domain.Entities;
     public class ReceiptDetail {
         public Guid Id { get; set; }
@@ -10,4 +11,7 @@ namespace WMS.Domain.Entities;
         public Receipt? Receipt { get; set; }
         public Product? Product { get; set; }
         public Zone? Zone { get; set; }
+
+        [Column(TypeName = "decimal(18,0)")] 
+        public decimal UnitPrice { get; set; }
     }

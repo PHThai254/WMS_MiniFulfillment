@@ -1,5 +1,7 @@
+import { formatVND } from '../../helpers/formatters';
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, Select, message, Space, Modal, Popconfirm } from 'antd';
+// BỔ SUNG IMPORT InputNumber
+import { Form, Input, Select, message, Space, Modal, Popconfirm, InputNumber } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from '@ant-design/icons';
 import { PageHeader } from '../../components/common/PageHeader';
 import { BaseTable } from '../../components/common/BaseTable';
@@ -36,7 +38,13 @@ export const ProductsPage: React.FC = () => {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const openCreate = () => { setEditing(null); form.resetFields(); setModalOpen(true); };
-    const openEdit = (p: IProduct) => { setEditing(p); form.setFieldsValue({ name: p.name, sku: p.sku, categoryId: p.categoryId }); setModalOpen(true); };
+    
+    // BỔ SUNG MAP TRƯỜNG price KHI BẤM SỬA
+    const openEdit = (p: IProduct) => { 
+        setEditing(p); 
+        form.setFieldsValue({ name: p.name, sku: p.sku, categoryId: p.categoryId, price: p.price }); 
+        setModalOpen(true); 
+    };
 
     const handleSave = async () => {
         try {
@@ -109,6 +117,18 @@ export const ProductsPage: React.FC = () => {
         { title: 'Tên sản phẩm', dataIndex: 'name', key: 'name', render: (v: string) => <strong>{v}</strong> },
         { title: 'SKU', dataIndex: 'sku', key: 'sku' },
         { title: 'Barcode', dataIndex: 'barcode', key: 'barcode' },
+        // BỔ SUNG CỘT ĐƠN GIÁ
+        {
+            title: 'Đơn giá',
+            dataIndex: 'price',
+            key: 'price',
+            align: 'right' as const,
+            render: (value: number) => (
+                <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
+                    {formatVND(value)}
+                </span>
+            ),
+        },
         { title: 'Danh mục', dataIndex: 'categoryName', key: 'categoryName' },
         {
             title: 'Hành động', key: 'action',
@@ -164,9 +184,29 @@ export const ProductsPage: React.FC = () => {
                     <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true, message: 'Nhập tên' }]}>
                         <Input placeholder="VD: Iphone 15 Pro Max" />
                     </Form.Item>
+                    
                     <Form.Item name="sku" label="SKU (Mã nội bộ)">
                         <Input placeholder="VD: IPH-15-PM (để trống tự tạo)" />
                     </Form.Item>
+
+                    {/* BỔ SUNG Ô NHẬP ĐƠN GIÁ */}
+                    <Form.Item
+                        name="price"
+                        label="Đơn giá (VNĐ)"
+                        rules={[
+                            { required: true, message: 'Vui lòng nhập đơn giá!' },
+                            { type: 'number', min: 0, message: 'Đơn giá không được là số âm!' }
+                        ]}
+                    >
+                        <InputNumber
+                            style={{ width: '100%' }}
+                            placeholder="Nhập giá bán..."
+                            addonAfter="₫"
+                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                        />
+                    </Form.Item>
+
                     <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true, message: 'Chọn danh mục' }]}>
                         <Select placeholder="Chọn danh mục">
                             {categories.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}

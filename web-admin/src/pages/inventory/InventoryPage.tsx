@@ -1,3 +1,4 @@
+import { formatVND } from '../../helpers/formatters';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Tabs, Tag, Space, Input, Select, message, Spin } from 'antd';
 import { SwapOutlined } from '@ant-design/icons';
@@ -74,8 +75,6 @@ export const InventoryPage: React.FC = () => {
 
     const inventoryColumns = [
         { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
-        { title: 'SKU', dataIndex: 'productSKU', key: 'productSKU' },
-        { title: 'Barcode', dataIndex: 'productBarcode', key: 'productBarcode' },
         { title: 'Kho', dataIndex: 'warehouseName', key: 'warehouseName' },
         { title: 'Zone', dataIndex: 'zoneName', key: 'zoneName' },
         {
@@ -84,6 +83,24 @@ export const InventoryPage: React.FC = () => {
                 <Tag color={q < 10 ? 'red' : q < 50 ? 'orange' : 'green'}>
                     {q}
                 </Tag>
+            )
+        },
+        // BỔ SUNG CỘT ĐƠN GIÁ VÀ GIÁ TRỊ TỒN KHO
+        { 
+            title: 'Đơn giá', 
+            dataIndex: 'productPrice', 
+            key: 'productPrice',
+            align: 'right' as const,
+            render: (v: number) => <span style={{ color: '#888' }}>{formatVND(v || 0)}</span> 
+        },
+        { 
+            title: 'Giá trị tồn', 
+            key: 'totalValue',
+            align: 'right' as const,
+            render: (_: unknown, record: IInventory) => (
+                <strong style={{ color: '#1677ff' }}>
+                    {formatVND(record.quantity * (record.productPrice || 0))}
+                </strong>
             )
         },
         {
@@ -95,13 +112,30 @@ export const InventoryPage: React.FC = () => {
     const summaryColumns = [
         { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
         { title: 'SKU', dataIndex: 'productSKU', key: 'productSKU' },
-        { title: 'Barcode', dataIndex: 'productBarcode', key: 'productBarcode' },
         {
             title: 'Tổng tồn kho', dataIndex: 'totalQuantity', key: 'totalQuantity',
             render: (q: number) => (
                 <Tag color={q < 10 ? 'red' : q < 50 ? 'orange' : 'green'}>
                     <strong>{q}</strong>
                 </Tag>
+            )
+        },
+        // BỔ SUNG CỘT ĐƠN GIÁ VÀ TỔNG GIÁ TRỊ
+        { 
+            title: 'Đơn giá', 
+            dataIndex: 'productPrice', 
+            key: 'productPrice',
+            align: 'right' as const,
+            render: (v: number) => <span style={{ color: '#888' }}>{formatVND(v || 0)}</span> 
+        },
+        { 
+            title: 'Tổng giá trị', 
+            key: 'totalValue',
+            align: 'right' as const,
+            render: (_: unknown, record: IStockSummary) => (
+                <strong style={{ color: '#1677ff' }}>
+                    {formatVND(record.totalQuantity * (record.productPrice || 0))}
+                </strong>
             )
         },
         {

@@ -27,7 +27,7 @@ public class InventoryService : IInventoryService
             .Select(i => new InventoryDto(
                 i.Id, i.WarehouseId, i.Warehouse!.Name, i.ZoneId, i.Zone!.Name,
                 i.ProductId, i.Product!.Name, i.Product.Barcode, i.Product.SKU,
-                i.Quantity, i.LastRestockedDate)).ToListAsync();
+                i.Product.Price, i.Quantity, i.LastRestockedDate)).ToListAsync();
                 
         return new WMS.Application.Wrappers.PagedResult<InventoryDto> { Items = items, TotalCount = total, PageIndex = pageIndex, PageSize = pageSize };
     }
@@ -37,7 +37,8 @@ public class InventoryService : IInventoryService
         var invs = await _db.Inventories.Include(i => i.Zone).Include(i => i.Product).AsNoTracking().ToListAsync();
         return invs.GroupBy(i => i.ProductId).Select(g => new StockSummaryDto(
             g.Key, g.First().Product?.Name ?? string.Empty, g.First().Product?.Barcode ?? string.Empty,
-            g.First().Product?.SKU ?? string.Empty, g.Sum(i => i.Quantity),
+            g.First().Product?.SKU ?? string.Empty,
+            g.First().Product?.Price ?? 0m, g.Sum(i => i.Quantity),
             g.Select(i => new StockByZoneDto(i.ZoneId, i.Zone?.Name ?? string.Empty, i.Quantity, i.LastRestockedDate)).ToList()
         )).OrderBy(s => s.TotalQuantity).ToList();
     }

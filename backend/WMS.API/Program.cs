@@ -97,9 +97,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Khởi tạo DB và Seed Data tự động
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    
+    // 1. Tự động chạy Migration: Đảm bảo DB và các bảng được tạo/cập nhật mới nhất
+    await dbContext.Database.MigrateAsync(); 
+    
+    // 2. Sau khi chắc chắn cấu trúc DB đã an toàn, mới bắt đầu bơm dữ liệu nền
     await DbInitializer.SeedAsync(dbContext);
 }
 
@@ -139,4 +145,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-

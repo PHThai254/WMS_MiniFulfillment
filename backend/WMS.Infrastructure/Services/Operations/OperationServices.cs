@@ -55,7 +55,8 @@ public class ReceiptService : IReceiptService
                 ReceiptId = receipt.Id,
                 ProductId = d.ProductId,
                 ExpectedQuantity = d.ExpectedQuantity,
-                ActualQuantity = 0
+                ActualQuantity = 0,
+                UnitPrice = d.UnitPrice
             });
         }
 
@@ -187,15 +188,20 @@ public class ReceiptService : IReceiptService
     }
 
     public async Task<OcrResultDto> RunOcrAsync(Stream imageStream, string fileName)
+{
+    await Task.Delay(500);
+    var items = new List<OcrLineItemDto>
     {
-        await Task.Delay(500);
-        var items = new List<OcrLineItemDto>
-        {
-            new("Sản phẩm mẫu A", 100, false),
-            new("Sản phẩm mẫu B", 50, true)
-        };
-        return new OcrResultDto("{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100}]}", items, true);
-    }
+        // 📌 Bổ sung thêm giá tiền (VD: 150000m và 50000m) vào vị trí thứ 3
+        new("Sản phẩm mẫu A", 100, 150000m, false),
+        new("Sản phẩm mẫu B", 50, 50000m, true)
+    };
+    
+    // Cập nhật lại chuỗi JSON giả lập cho khớp thực tế
+    string mockJson = "{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100,\"price\":150000},{\"name\":\"Sản phẩm mẫu B\",\"qty\":50,\"price\":50000}]}";
+    
+    return new OcrResultDto(mockJson, items, true);
+}
 
     /// <summary>
     /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
@@ -246,7 +252,8 @@ public class ReceiptService : IReceiptService
                     ProductId = item.ProductId,
                     ZoneId = item.ZoneId,
                     ExpectedQuantity = item.Quantity,
-                    ActualQuantity = item.Quantity // Vì đã được duyệt
+                    ActualQuantity = item.Quantity,
+                    UnitPrice = item.UnitPrice
                 });
             }
 
@@ -312,7 +319,7 @@ public class ReceiptService : IReceiptService
         r.ReceiptDetails.Select(d => new ReceiptDetailDto(
             d.Id, d.ReceiptId, d.ProductId,
             d.Product?.Name ?? string.Empty, d.Product?.Barcode ?? string.Empty,
-            d.ZoneId, d.Zone?.Name, d.ExpectedQuantity, d.ActualQuantity)).ToList()
+            d.ZoneId, d.Zone?.Name, d.ExpectedQuantity, d.ActualQuantity, d.UnitPrice)).ToList()
     );
 }
 
