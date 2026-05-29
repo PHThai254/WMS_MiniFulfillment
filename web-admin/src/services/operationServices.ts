@@ -24,7 +24,7 @@ export const receiptService = {
     completePutaway: async (id: string) =>
         apiClient.post(API_ENDPOINTS.receipts.completePutaway(id), {}) as Promise<ApiResponse<IReceipt>>,
     runOcr: async (formData: FormData) => {
-        const resp = await apiClient.post(API_ENDPOINTS.receipts.ocr, formData, {
+        const resp = await apiClient.post(API_ENDPOINTS.ocr.extractInvoice, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return resp as unknown as ApiResponse<IOcrResult>;

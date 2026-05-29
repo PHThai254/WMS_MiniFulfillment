@@ -27,7 +27,7 @@ class ProductService {
     const response = await apiClient.get<ApiResponse<ProductDto>>(
       API_ENDPOINTS.products.get(id.toString())
     );
-    return response.data.data || {};
+    return (response.data.data ?? { id: 0, name: '', sku: '', barcode: '', categoryId: 0 }) as ProductDto;
   }
 }
 

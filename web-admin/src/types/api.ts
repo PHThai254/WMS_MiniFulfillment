@@ -17,6 +17,8 @@ export interface PaginatedApiResponse<T> extends ApiResponse<PaginatedResponse<T
 
 // OCR Related Types
 export interface OcrItemDto {
+    productId?: number;
+    zoneId?: number;
     productName?: string;
     productNameConfidence?: number;
     quantity: number;

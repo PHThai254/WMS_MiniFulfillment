@@ -40,13 +40,13 @@ public class OcrController : ControllerBase
     {
         if (image == null || image.Length == 0)
         {
-            return BadRequest(new ApiResponse<object>(false, "Dữ liệu ảnh không hợp lệ"));
+            return BadRequest(ApiResponse<object>.Failed("Dữ liệu ảnh không hợp lệ"));
         }
 
         // Kiểm tra kích thước file
         if (image.Length > MaxFileSizeBytes)
         {
-            return BadRequest(new ApiResponse<object>(false, $"Kích thước file vượt quá {MaxFileSizeBytes / (1024 * 1024)}MB"));
+            return BadRequest(ApiResponse<object>.Failed($"Kích thước file vượt quá {MaxFileSizeBytes / (1024 * 1024)}MB"));
         }
 
         // Kiểm tra định dạng file
@@ -54,7 +54,7 @@ public class OcrController : ControllerBase
         var fileExtension = Path.GetExtension(image.FileName).ToLower();
         if (!Array.Exists(allowedExtensions, ext => ext == fileExtension))
         {
-            return BadRequest(new ApiResponse<object>(false, $"Định dạng file không được hỗ trợ. Hỗ trợ: {string.Join(", ", allowedExtensions)}"));
+            return BadRequest(ApiResponse<object>.Failed($"Định dạng file không được hỗ trợ. Hỗ trợ: {string.Join(", ", allowedExtensions)}"));
         }
 
         try
@@ -66,19 +66,23 @@ public class OcrController : ControllerBase
 
             var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String);
             
+<<<<<<< HEAD
             return Ok(new ApiResponse<object>(result, "Xử lý OCR thành công"));
+=======
+            return Ok(ApiResponse<object>.Succeeded(result, "Xử lý OCR thành công"));
+>>>>>>> 10b7218 (Dựng chức năng Preview hệ thống gợi ý lấy hàng ở đâu trên Web, Dựng bảng theo dõi Real-time trạng thái từng dòng phiếu xuất (Đang lấy / Đã lấy đủ))
         }
         catch (OcrParsingException ex)
         {
-            return BadRequest(new ApiResponse<object>(false, ex.Message));
+            return BadRequest(ApiResponse<object>.Failed(ex.Message));
         }
         catch (ApplicationException ex)
         {
-            return StatusCode(500, new ApiResponse<object>(false, "Lỗi gọi Gemini API: " + ex.Message));
+            return StatusCode(500, ApiResponse<object>.Failed("Lỗi gọi Gemini API: " + ex.Message));
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new ApiResponse<object>(false, "Lỗi hệ thống trong quá trình xử lý OCR: " + ex.Message));
+            return StatusCode(500, ApiResponse<object>.Failed("Lỗi hệ thống trong quá trình xử lý OCR: " + ex.Message));
         }
     }
 }

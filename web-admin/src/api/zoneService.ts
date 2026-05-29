@@ -26,7 +26,7 @@ class ZoneService {
     const response = await apiClient.get<ApiResponse<ZoneDto>>(
       API_ENDPOINTS.zones.get(id.toString())
     );
-    return response.data.data || {};
+    return (response.data.data ?? { id: 0, warehouseId: 0, name: '' }) as ZoneDto;
   }
 
   async getZonesByWarehouse(warehouseId: number): Promise<{ data: ZoneDto[] }> {

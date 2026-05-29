@@ -2,7 +2,8 @@ import { formatVND } from '../../helpers/formatters';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     Modal, Form, Select, InputNumber, Button, Space, Tag,
-    Descriptions, Divider, Steps, Alert, message, Row, Col, Input
+    Descriptions, Divider, Steps, Alert, message, Row, Col, Input,
+    Card, Statistic, Progress
 } from 'antd';
 import {
     PlusOutlined, EyeOutlined, CheckCircleOutlined,
@@ -53,6 +54,14 @@ export const IssuesPage: React.FC = () => {
 
     useEffect(() => {
         fetchIssues();
+        const refreshTimer = window.setInterval(() => {
+            fetchIssues();
+        }, 5000);
+
+        return () => window.clearInterval(refreshTimer);
+    }, [fetchIssues]);
+
+    useEffect(() => {
         Promise.all([warehouseService.list(), customerService.list(), productService.list()])
             .then(([wRes, cRes, pRes]) => {
                 if (wRes?.success) setWarehouses(wRes.data || []);
@@ -102,6 +111,17 @@ export const IssuesPage: React.FC = () => {
         finally { setHandoverLoading(false); }
     };
 
+    const totalPickingUnits = pickingPlan?.items.reduce((sum, item) => sum + item.quantityToPick, 0) ?? 0;
+    const pickingZoneCount = new Set(pickingPlan?.items.map(item => item.zoneName) ?? []).size;
+
+    const getLineStatus = (item: { quantityToPick: number; pickedQuantity: number }) => {
+        if (item.pickedQuantity >= item.quantityToPick) return { label: 'Đã lấy đủ', color: 'success' as const };
+        return { label: 'Đang lấy', color: 'processing' as const };
+    };
+
+    const completedLines = selectedIssue?.issueDetails.filter(item => item.pickedQuantity >= item.quantityToPick).length ?? 0;
+    const inProgressLines = (selectedIssue?.issueDetails.length ?? 0) - completedLines;
+
     const columns = [
         { title: 'ID', dataIndex: 'id', key: 'id', render: (v: string) => v.substring(0, 8) + '...' },
         { title: 'Kho', dataIndex: 'warehouseName', key: 'warehouseName' },
@@ -120,7 +140,7 @@ export const IssuesPage: React.FC = () => {
                     {record.status === 'Pending' && (
                         <Button icon={<EnvironmentOutlined />} size="small" type="primary"
                             loading={planLoading} onClick={() => handleGetPickingPlan(record.id)}>
-                            Lộ trình FIFO
+                            Preview lấy hàng
                         </Button>
                     )}
                 </Space>
@@ -196,12 +216,44 @@ export const IssuesPage: React.FC = () => {
                                 <Tag color={STATUS_MAP[selectedIssue.status]?.color}>{STATUS_MAP[selectedIssue.status]?.label}</Tag>
                             </Descriptions.Item>
                         </Descriptions>
-                        <Divider>Chi tiết</Divider>
+                        <Divider>Theo dõi từng dòng xuất kho</Divider>
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                            <Col span={8}>
+                                <Card size="small">
+                                    <Statistic title="Đang lấy" value={inProgressLines} suffix="dòng" />
+                                </Card>
+                            </Col>
+                            <Col span={8}>
+                                <Card size="small">
+                                    <Statistic title="Đã lấy đủ" value={completedLines} suffix="dòng" />
+                                </Card>
+                            </Col>
+                            <Col span={8}>
+                                <Card size="small">
+                                    <Statistic title="Tổng dòng" value={selectedIssue.issueDetails.length} suffix="dòng" />
+                                </Card>
+                            </Col>
+                        </Row>
                         <BaseTable
                             columns={[
                                 { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
+                                { title: 'Khu vực', dataIndex: 'zoneName', key: 'zoneName', render: (v?: string) => v || '—' },
                                 { title: 'Cần nhặt', dataIndex: 'quantityToPick', key: 'quantityToPick' },
                                 { title: 'Đã nhặt', dataIndex: 'pickedQuantity', key: 'pickedQuantity' },
+                                {
+                                    title: 'Tiến độ', key: 'progress',
+                                    render: (_: unknown, record: { quantityToPick: number; pickedQuantity: number }) => {
+                                        const percent = Math.min(100, Math.round((record.pickedQuantity / Math.max(record.quantityToPick, 1)) * 100));
+                                        return <Progress percent={percent} size="small" status={record.pickedQuantity >= record.quantityToPick ? 'success' : 'active'} />;
+                                    }
+                                },
+                                {
+                                    title: 'Trạng thái', key: 'status',
+                                    render: (_: unknown, record: { quantityToPick: number; pickedQuantity: number }) => {
+                                        const status = getLineStatus(record);
+                                        return <Tag color={status.color}>{status.label}</Tag>;
+                                    }
+                                },
                             ]}
                             dataSource={selectedIssue.issueDetails}
                             rowKey="id"
@@ -217,21 +269,59 @@ export const IssuesPage: React.FC = () => {
                 )}
             </Modal>
 
-            {/* Modal Lộ trình FIFO Picking */}
-            <Modal title={<><EnvironmentOutlined /> Lộ trình nhặt hàng FIFO</>}
-                open={pickingPlanModalOpen} onCancel={() => setPickingPlanModalOpen(false)} footer={null} width={700}>
+            {/* Modal Preview hệ thống gợi ý lấy hàng */}
+            <Modal title={<><EnvironmentOutlined /> Preview hệ thống gợi ý lấy hàng</>}
+                open={pickingPlanModalOpen} onCancel={() => setPickingPlanModalOpen(false)} footer={null} width={860}>
                 {pickingPlan && (
                     <>
-                        <Alert message="Thuật toán FIFO: Hàng nhập trước được xuất trước. Đi theo lộ trình dưới đây." type="info" showIcon style={{ marginBottom: 16 }} />
-                        <Steps 
-                            direction="vertical" 
-                            size="small" 
+                        <Alert message="Hệ thống ưu tiên khu vực có hàng nhập sớm nhất (FIFO) để giảm thời gian đi lại của thủ kho." type="info" showIcon />
+                        <Row gutter={16} style={{ marginTop: 16 }}>
+                            <Col span={8}>
+                                <Card>
+                                    <Statistic title="Tổng sản phẩm cần lấy" value={totalPickingUnits} suffix="sp" />
+                                </Card>
+                            </Col>
+                            <Col span={8}>
+                                <Card>
+                                    <Statistic title="Số khu vực gợi ý" value={pickingZoneCount} suffix="zone" />
+                                </Card>
+                            </Col>
+                            <Col span={8}>
+                                <Card>
+                                    <Statistic title="Số dòng lộ trình" value={pickingPlan.items.length} suffix="bước" />
+                                </Card>
+                            </Col>
+                        </Row>
+
+                        <Divider>Đường đi đề xuất</Divider>
+                        <Steps
+                            direction="vertical"
+                            size="small"
                             items={pickingPlan.items.map((item, idx) => ({
                                 key: idx,
-                                title: <><strong style={{ fontSize: 16 }}>ĐẾN {item.zoneName.toUpperCase()}</strong> — Lấy {item.quantityToPick} sản phẩm</>,
-                                description: <><Tag>{item.productName}</Tag> | Barcode: {item.productBarcode} | Nhập lúc: {new Date(item.restockedDate).toLocaleDateString('vi-VN')}</>,
-                                status: "process" as const
+                                title: <strong>ĐẾN {item.zoneName.toUpperCase()} — Lấy {item.quantityToPick} sản phẩm</strong>,
+                                description: (
+                                    <Space direction="vertical" size="small">
+                                        <span><Tag>{item.productName}</Tag> | Barcode: {item.productBarcode}</span>
+                                        <span>Nhập lúc: {new Date(item.restockedDate).toLocaleDateString('vi-VN')}</span>
+                                    </Space>
+                                ),
+                                status: 'process' as const
                             }))}
+                        />
+
+                        <Divider>Preview theo từng mặt hàng</Divider>
+                        <BaseTable
+                            columns={[
+                                { title: 'Khu vực', dataIndex: 'zoneName', key: 'zoneName' },
+                                { title: 'Sản phẩm', dataIndex: 'productName', key: 'productName' },
+                                { title: 'Barcode', dataIndex: 'productBarcode', key: 'productBarcode' },
+                                { title: 'Số lượng', dataIndex: 'quantityToPick', key: 'quantityToPick' },
+                                { title: 'Nhập trước', dataIndex: 'restockedDate', key: 'restockedDate', render: (v: string) => new Date(v).toLocaleDateString('vi-VN') },
+                            ]}
+                            dataSource={pickingPlan.items}
+                            rowKey="issueDetailId"
+                            pagination={false}
                         />
                     </>
                 )}

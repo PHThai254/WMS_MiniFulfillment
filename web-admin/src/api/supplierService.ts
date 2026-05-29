@@ -27,7 +27,7 @@ class SupplierService {
     const response = await apiClient.get<ApiResponse<SupplierDto>>(
       API_ENDPOINTS.suppliers.get(id.toString())
     );
-    return response.data.data || {};
+    return (response.data.data ?? { id: 0, name: '' }) as SupplierDto;
   }
 }
 
