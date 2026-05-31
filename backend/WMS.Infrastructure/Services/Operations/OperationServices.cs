@@ -67,21 +67,31 @@ public class ReceiptService : IReceiptService
 
     public async Task<ReceiptDto> ApproveQcAsync(Guid id, ApproveReceiptRequest request)
     {
-        var receipt = await _db.Receipts.Include(r => r.ReceiptDetails).FirstOrDefaultAsync(r => r.Id == id)
-            ?? throw new KeyNotFoundException("Không tìm thấy phiếu nhập.");
-        if (receipt.Status != ReceiptStatus.Draft)
-            throw new InvalidOperationException("Chỉ có thể duyệt phiếu ở trạng thái Draft.");
-
-        foreach (var upd in request.Details)
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
         {
-            var detail = receipt.ReceiptDetails.FirstOrDefault(d => d.Id == upd.DetailId)
-                ?? throw new ArgumentException($"Không tìm thấy chi tiết {upd.DetailId}.");
-            detail.ActualQuantity = upd.ActualQuantity;
-            detail.ZoneId = upd.ZoneId;
+            var receipt = await _db.Receipts.Include(r => r.ReceiptDetails).FirstOrDefaultAsync(r => r.Id == id)
+                ?? throw new KeyNotFoundException("Không tìm thấy phiếu nhập.");
+            if (receipt.Status != ReceiptStatus.Draft)
+                throw new InvalidOperationException("Chỉ có thể duyệt phiếu ở trạng thái Draft.");
+
+            foreach (var upd in request.Details)
+            {
+                var detail = receipt.ReceiptDetails.FirstOrDefault(d => d.Id == upd.DetailId)
+                    ?? throw new ArgumentException($"Không tìm thấy chi tiết {upd.DetailId}.");
+                detail.ActualQuantity = upd.ActualQuantity;
+                detail.ZoneId = upd.ZoneId;
+            }
+            receipt.Status = ReceiptStatus.QC_Checked;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return (await GetByIdAsync(receipt.Id))!;
         }
-        receipt.Status = ReceiptStatus.QC_Checked;
-        await _db.SaveChangesAsync();
-        return (await GetByIdAsync(receipt.Id))!;
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<ReceiptDto> ApproveOcrAsync(Guid id, ApproveOcrRequest request)
@@ -462,11 +472,21 @@ public class IssueService : IIssueService
 
     public async Task<IssueDto> HandoverAsync(Guid issueId)
     {
-        var issue = await _db.Issues.FirstOrDefaultAsync(i => i.Id == issueId)
-            ?? throw new KeyNotFoundException("Không tìm thấy phiếu xuất.");
-        issue.Status = IssueStatus.Handover;
-        await _db.SaveChangesAsync();
-        return (await GetByIdAsync(issue.Id))!;
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var issue = await _db.Issues.FirstOrDefaultAsync(i => i.Id == issueId)
+                ?? throw new KeyNotFoundException("Không tìm thấy phiếu xuất.");
+            issue.Status = IssueStatus.Handover;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return (await GetByIdAsync(issue.Id))!;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     private static IssueDto MapToDto(Issue i) => new(

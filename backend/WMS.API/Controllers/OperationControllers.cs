@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using WMS.Application.DTOs.Operations;
 using WMS.Application.Interfaces;
 using WMS.Application.Wrappers;
+using WMS.Infrastructure.Data;
 
 namespace WMS.API.Controllers;
 
@@ -13,11 +15,13 @@ public class ReceiptsController : ControllerBase
 {
     private readonly IReceiptService _service;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ApplicationDbContext _dbContext;
 
-    public ReceiptsController(IReceiptService service, ICurrentUserContext currentUser)
+    public ReceiptsController(IReceiptService service, ICurrentUserContext currentUser, ApplicationDbContext dbContext)
     {
         _service = service;
         _currentUser = currentUser;
+        _dbContext = dbContext;
     }
 
     [HttpGet]
@@ -64,8 +68,17 @@ public class ReceiptsController : ControllerBase
     [Authorize(Roles = "Staff,Admin")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> CompletePutAway(Guid id)
     {
-        var data = await _service.CompletePutAwayAsync(id);
-        return Ok(ApiResponse<ReceiptDto>.Succeeded(data, "Hoàn thành cất hàng. Tồn kho đã được cập nhật."));
+        try
+        {
+            var data = await _service.CompletePutAwayAsync(id);
+            return Ok(ApiResponse<ReceiptDto>.Succeeded(data, "Hoàn thành cất hàng. Tồn kho đã được cập nhật."));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Tồn kho bị thay đổi bởi người dùng khác - xung đột concurrency
+            return Conflict(ApiResponse<ReceiptDto>.Failed(
+                "Tồn kho đã được thay đổi bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại."));
+        }
     }
 
     /// <summary>
@@ -108,11 +121,13 @@ public class IssuesController : ControllerBase
 {
     private readonly IIssueService _service;
     private readonly ICurrentUserContext _currentUser;
+    private readonly ApplicationDbContext _dbContext;
 
-    public IssuesController(IIssueService service, ICurrentUserContext currentUser)
+    public IssuesController(IIssueService service, ICurrentUserContext currentUser, ApplicationDbContext dbContext)
     {
         _service = service;
         _currentUser = currentUser;
+        _dbContext = dbContext;
     }
 
     [HttpGet]
@@ -151,16 +166,34 @@ public class IssuesController : ControllerBase
     [Authorize(Roles = "Staff,Admin")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> ConfirmPick(Guid id, [FromBody] ConfirmPickRequest request)
     {
-        var data = await _service.ConfirmPickAsync(id, request);
-        return Ok(ApiResponse<IssueDto>.Succeeded(data, "Xác nhận nhặt hàng thành công."));
+        try
+        {
+            var data = await _service.ConfirmPickAsync(id, request);
+            return Ok(ApiResponse<IssueDto>.Succeeded(data, "Xác nhận nhặt hàng thành công."));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Tồn kho bị thay đổi bởi người dùng khác - xung đột concurrency
+            return Conflict(ApiResponse<IssueDto>.Failed(
+                "Tồn kho đã được thay đổi bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại."));
+        }
     }
 
     [HttpPost("{id:guid}/handover")]
     [Authorize(Roles = "Staff,Admin")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> Handover(Guid id)
     {
-        var data = await _service.HandoverAsync(id);
-        return Ok(ApiResponse<IssueDto>.Succeeded(data, "Bàn giao vận chuyển thành công."));
+        try
+        {
+            var data = await _service.HandoverAsync(id);
+            return Ok(ApiResponse<IssueDto>.Succeeded(data, "Bàn giao vận chuyển thành công."));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Tồn kho bị thay đổi bởi người dùng khác - xung đột concurrency
+            return Conflict(ApiResponse<IssueDto>.Failed(
+                "Tồn kho đã được thay đổi bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại."));
+        }
     }
 }
 

@@ -40,6 +40,13 @@ public class ApplicationDbContext : DbContext
             relationship.DeleteBehavior = DeleteBehavior.Restrict;
         }
 
+        // =============== CẤU HÌNH CONCURRENCY TOKEN ===============
+        // Cấu hình RowVersion cho Inventory để chống Race Condition
+        // RowVersion được EF Core tự động quản lý và cập nhật khi có bất kỳ thay đổi nào
+        modelBuilder.Entity<Inventory>()
+            .Property(i => i.RowVersion)
+            .IsRowVersion();
+
         // =============== CẤU HÌNH GLOBAL QUERY FILTER THEO WAREHOUSEID ===============
         // Lọc tự động các Entity dựa trên WarehouseId từ JWT Token
         // Chỉ lấy dữ liệu thuộc về Kho của User hiện tại
