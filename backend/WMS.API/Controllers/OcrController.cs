@@ -66,11 +66,7 @@ public class OcrController : ControllerBase
 
             var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String);
             
-<<<<<<< HEAD
-            return Ok(new ApiResponse<object>(result, "Xử lý OCR thành công"));
-=======
             return Ok(ApiResponse<object>.Succeeded(result, "Xử lý OCR thành công"));
->>>>>>> 10b7218 (Dựng chức năng Preview hệ thống gợi ý lấy hàng ở đâu trên Web, Dựng bảng theo dõi Real-time trạng thái từng dòng phiếu xuất (Đang lấy / Đã lấy đủ))
         }
         catch (OcrParsingException ex)
         {

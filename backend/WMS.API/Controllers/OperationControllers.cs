@@ -80,11 +80,7 @@ public class ReceiptsController : ControllerBase
         {
             var createdBy = _currentUser.GetCurrentUserId() ?? "system";
             var receiptId = await _service.SaveReceiptFromOcrAsync(request, createdBy);
-<<<<<<< HEAD
-            return Ok(new ApiResponse<object>(new { id = receiptId }, "Lưu phiếu nhập từ OCR thành công"));
-=======
             return Ok(ApiResponse<object>.Succeeded(new { id = receiptId }, "Lưu phiếu nhập từ OCR thành công"));
->>>>>>> 10b7218 (Dựng chức năng Preview hệ thống gợi ý lấy hàng ở đâu trên Web, Dựng bảng theo dõi Real-time trạng thái từng dòng phiếu xuất (Đang lấy / Đã lấy đủ))
         }
         catch (Exception ex)
         {
