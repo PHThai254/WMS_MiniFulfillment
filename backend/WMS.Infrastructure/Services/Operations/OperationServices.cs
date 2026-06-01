@@ -11,11 +11,13 @@ public class ReceiptService : IReceiptService
 {
     private readonly ApplicationDbContext _db;
     private readonly ICompletionCheckService _completionCheckService;
+    private readonly IAiOcrService _aiOcrService;
     
-    public ReceiptService(ApplicationDbContext db, ICompletionCheckService completionCheckService)
+    public ReceiptService(ApplicationDbContext db, ICompletionCheckService completionCheckService, IAiOcrService aiOcrService)
     {
         _db = db;
         _completionCheckService = completionCheckService;
+        _aiOcrService = aiOcrService;
     }
 
     public async Task<List<ReceiptDto>> GetAllAsync() =>
@@ -199,29 +201,57 @@ public class ReceiptService : IReceiptService
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
             
-            // Tự động kiểm tra và chuyển sang Completed nếu đủ hàng
-            await _completionCheckService.CheckAndCompleteReceiptAsync(receipt.Id);
-            
             return (await GetByIdAsync(receipt.Id))!;
         }
         catch { await tx.RollbackAsync(); throw; }
     }
 
     public async Task<OcrResultDto> RunOcrAsync(Stream imageStream, string fileName)
-{
-    await Task.Delay(500);
-    var items = new List<OcrLineItemDto>
     {
-        // 📌 Bổ sung thêm giá tiền (VD: 150000m và 50000m) vào vị trí thứ 3
-        new("Sản phẩm mẫu A", 100, 150000m, false),
-        new("Sản phẩm mẫu B", 50, 50000m, true)
-    };
-    
-    // Cập nhật lại chuỗi JSON giả lập cho khớp thực tế
-    string mockJson = "{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100,\"price\":150000},{\"name\":\"Sản phẩm mẫu B\",\"qty\":50,\"price\":50000}]}";
-    
-    return new OcrResultDto(mockJson, items, true);
-}
+        using var ms = new MemoryStream();
+        await imageStream.CopyToAsync(ms);
+        var base64Image = Convert.ToBase64String(ms.ToArray());
+
+        var jsonResult = await _aiOcrService.ExtractInvoiceDataAsync(base64Image);
+
+        var items = new List<OcrLineItemDto>();
+        bool hasLowConfidence = false;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(jsonResult);
+            var root = doc.RootElement;
+            
+            if (root.TryGetProperty("items", out var itemsElement) && itemsElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var itemElement in itemsElement.EnumerateArray())
+                {
+                    string name = itemElement.TryGetProperty("productName", out var n) ? n.GetString() ?? "Unknown" : "Unknown";
+                    int qty = itemElement.TryGetProperty("quantity", out var q) ? (q.TryGetInt32(out int qVal) ? qVal : 0) : 0;
+                    decimal price = itemElement.TryGetProperty("unitPrice", out var p) ? (p.TryGetDecimal(out decimal pVal) ? pVal : 0m) : 0m;
+                    
+                    bool isSuspicious = false;
+                    if (itemElement.TryGetProperty("productNameConfidence", out var nc) && nc.GetDouble() < 0.7) isSuspicious = true;
+                    if (itemElement.TryGetProperty("quantityConfidence", out var qc) && qc.GetDouble() < 0.7) isSuspicious = true;
+                    if (itemElement.TryGetProperty("unitPriceConfidence", out var pc) && pc.GetDouble() < 0.7) isSuspicious = true;
+                    
+                    if (isSuspicious) hasLowConfidence = true;
+
+                    items.Add(new OcrLineItemDto(name, qty, price, isSuspicious));
+                }
+            }
+            if (root.TryGetProperty("suspiciousFields", out var suspicious) && suspicious.GetArrayLength() > 0)
+            {
+                hasLowConfidence = true;
+            }
+        }
+        catch
+        {
+            hasLowConfidence = true;
+        }
+
+        return new OcrResultDto(jsonResult, items, hasLowConfidence);
+    }
 
     /// <summary>
     /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
@@ -235,6 +265,9 @@ public class ReceiptService : IReceiptService
             // Kiểm tra Supplier
             if (!await _db.Suppliers.AnyAsync(s => s.Id == request.SupplierId))
                 throw new ArgumentException("Nhà cung cấp không tồn tại.");
+
+            if (request.Items == null || !request.Items.Any())
+                throw new ArgumentException("Danh sách sản phẩm không được trống.");
 
             // Kiểm tra tất cả Products và Zones tồn tại
             foreach (var item in request.Items)

@@ -37,7 +37,10 @@ public static class DependencyInjection
         services.AddScoped<IUserManagementService, UserManagementService>();
 
         // External APIs
-        services.AddHttpClient<IAiOcrService, GeminiOcrService>();
+        services.AddHttpClient<IAiOcrService, GeminiOcrService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(120);
+        });
 
         return services;
     }
