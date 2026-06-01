@@ -10,7 +10,13 @@ namespace WMS.Infrastructure.Services.Operations;
 public class ReceiptService : IReceiptService
 {
     private readonly ApplicationDbContext _db;
-    public ReceiptService(ApplicationDbContext db) => _db = db;
+    private readonly ICompletionCheckService _completionCheckService;
+    
+    public ReceiptService(ApplicationDbContext db, ICompletionCheckService completionCheckService)
+    {
+        _db = db;
+        _completionCheckService = completionCheckService;
+    }
 
     public async Task<List<ReceiptDto>> GetAllAsync() =>
         await _db.Receipts.AsNoTracking()
@@ -192,6 +198,10 @@ public class ReceiptService : IReceiptService
             receipt.Status = ReceiptStatus.Completed;
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
+            
+            // Tự động kiểm tra và chuyển sang Completed nếu đủ hàng
+            await _completionCheckService.CheckAndCompleteReceiptAsync(receipt.Id);
+            
             return (await GetByIdAsync(receipt.Id))!;
         }
         catch { await tx.RollbackAsync(); throw; }
@@ -336,7 +346,13 @@ public class ReceiptService : IReceiptService
 public class IssueService : IIssueService
 {
     private readonly ApplicationDbContext _db;
-    public IssueService(ApplicationDbContext db) => _db = db;
+    private readonly ICompletionCheckService _completionCheckService;
+    
+    public IssueService(ApplicationDbContext db, ICompletionCheckService completionCheckService)
+    {
+        _db = db;
+        _completionCheckService = completionCheckService;
+    }
 
     public async Task<List<IssueDto>> GetAllAsync() =>
         await _db.Issues.AsNoTracking()
@@ -465,6 +481,10 @@ public class IssueService : IIssueService
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
+            
+            // Tự động kiểm tra và chuyển sang Handover nếu hết hàng
+            await _completionCheckService.CheckAndCompleteIssueAsync(issue.Id);
+            
             return (await GetByIdAsync(issue.Id))!;
         }
         catch { await tx.RollbackAsync(); throw; }

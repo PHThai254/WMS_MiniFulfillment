@@ -14,12 +14,18 @@ namespace WMS.API.Controllers;
 public class ReceiptsController : ControllerBase
 {
     private readonly IReceiptService _service;
+    private readonly ICompletionCheckService _completionCheckService;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApplicationDbContext _dbContext;
 
-    public ReceiptsController(IReceiptService service, ICurrentUserContext currentUser, ApplicationDbContext dbContext)
+    public ReceiptsController(
+        IReceiptService service,
+        ICompletionCheckService completionCheckService,
+        ICurrentUserContext currentUser,
+        ApplicationDbContext dbContext)
     {
         _service = service;
+        _completionCheckService = completionCheckService;
         _currentUser = currentUser;
         _dbContext = dbContext;
     }
@@ -112,6 +118,32 @@ public class ReceiptsController : ControllerBase
         var result = await _service.RunOcrAsync(stream, image.FileName);
         return Ok(ApiResponse<OcrResultDto>.Succeeded(result, "OCR hoàn thành."));
     }
+
+    /// <summary>
+    /// Kiểm tra và tự động chuyển Receipt sang Completed nếu đủ hàng
+    /// (Thường được gọi tự động, nhưng có thể gọi manual nếu cần)
+    /// </summary>
+    [HttpPost("{id:guid}/check-completion")]
+    [Authorize(Roles = "Staff,Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> CheckCompletion(Guid id)
+    {
+        try
+        {
+            var isCompleted = await _completionCheckService.CheckAndCompleteReceiptAsync(id);
+            var message = isCompleted
+                ? "Phiếu nhập đã chuyển sang Completed."
+                : "Phiếu nhập chưa đủ điều kiện để hoàn thành.";
+            return Ok(ApiResponse<object>.Succeeded(new { completed = isCompleted }, message));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Failed(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Failed(ex.Message));
+        }
+    }
 }
 
 [ApiController]
@@ -120,12 +152,18 @@ public class ReceiptsController : ControllerBase
 public class IssuesController : ControllerBase
 {
     private readonly IIssueService _service;
+    private readonly ICompletionCheckService _completionCheckService;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApplicationDbContext _dbContext;
 
-    public IssuesController(IIssueService service, ICurrentUserContext currentUser, ApplicationDbContext dbContext)
+    public IssuesController(
+        IIssueService service,
+        ICompletionCheckService completionCheckService,
+        ICurrentUserContext currentUser,
+        ApplicationDbContext dbContext)
     {
         _service = service;
+        _completionCheckService = completionCheckService;
         _currentUser = currentUser;
         _dbContext = dbContext;
     }
@@ -189,6 +227,32 @@ public class IssuesController : ControllerBase
             return Ok(ApiResponse<IssueDto>.Succeeded(data, "Bàn giao vận chuyển thành công."));
         }
         catch (DbUpdateConcurrencyException)
+
+    /// <summary>
+    /// Kiểm tra và tự động chuyển Issue sang Handover nếu tất cả hàng đã pick đủ
+    /// (Thường được gọi tự động, nhưng có thể gọi manual nếu cần)
+    /// </summary>
+    [HttpPost("{id:guid}/check-completion")]
+    [Authorize(Roles = "Staff,Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> CheckCompletion(Guid id)
+    {
+        try
+        {
+            var isCompleted = await _completionCheckService.CheckAndCompleteIssueAsync(id);
+            var message = isCompleted
+                ? "Phiếu xuất đã chuyển sang Handover."
+                : "Phiếu xuất chưa đủ điều kiện để hoàn thành (chưa pick hết hàng).";
+            return Ok(ApiResponse<object>.Succeeded(new { completed = isCompleted }, message));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<object>.Failed(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<object>.Failed(ex.Message));
+        }
+    }
         {
             // Tồn kho bị thay đổi bởi người dùng khác - xung đột concurrency
             return Conflict(ApiResponse<IssueDto>.Failed(

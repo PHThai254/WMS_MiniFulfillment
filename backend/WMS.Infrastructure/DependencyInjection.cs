@@ -29,6 +29,7 @@ public static class DependencyInjection
         // Operation Services
         services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IIssueService, IssueService>();
+        services.AddScoped<ICompletionCheckService, CompletionCheckService>();
 
         // Management Services
         services.AddScoped<IInventoryService, InventoryService>();
