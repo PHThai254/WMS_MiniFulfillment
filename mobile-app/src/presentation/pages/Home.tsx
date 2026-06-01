@@ -1,292 +1,197 @@
+// mobile-app/src/presentation/pages/Home.tsx
+// Màn hình Home (Task List) - Tuần 6 - Đức Anh
+// Hiển thị danh sách phiếu chờ cất hàng (QC_Checked) và lệnh xuất đang nhặt (Picking)
 
-/**
- * Home Screen - Task List
- * Hiển thị danh sách lệnh Cất Hàng (Put-Away) và Nhặt Hàng (Picking)
- */
+
 
 import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
   Text,
   StyleSheet,
-  FlatList,
-  ActivityIndicator,
+  ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Button, Card, Divider } from 'react-native-paper';
-import { inventoryService } from '../../infrastructure/inventoryService';
-import { Receipt, Issue, Task, PutAwayTask, PickingTask } from '../../types';
+import { useAuth } from '../context/AuthContext';
+import { TaskCard } from '../../components';
+import receiptService from '../../infrastructure/receiptService';
+import issueService from '../../infrastructure/issueService';
+import type { ReceiptDto, IssueDto } from '../../infrastructure/wmsTypes';
 
-type TabType = 'putaway' | 'picking';
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-interface HomeScreenProps {
-  navigation: any;
-}
+type ActiveTab = 'inbound' | 'outbound';
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('putaway');
-  const [putAwayTasks, setPutAwayTasks] = useState<PutAwayTask[]>([]);
-  const [pickingTasks, setPickingTasks] = useState<PickingTask[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export const HomeScreen = ({ navigation }: any) => {
+  const { user, signOut } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>('inbound');
+  const [pendingReceipts, setPendingReceipts] = useState<ReceiptDto[]>([]);
+  const [pickingIssues, setPickingIssues] = useState<IssueDto[]>([]);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // ──────────────────────────────────────────────────────────────────────
-  // 📥 LẤY DANH SÁCH PHIẾU NHẬP (PUT-AWAY)
-  // ──────────────────────────────────────────────────────────────────────
-  const fetchReceiptList = async () => {
+  // ─── Data Fetching ──────────────────────────────────────────────────────────
+
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      const response = await inventoryService.getReceiptList();
-      
-      if (response?.success && response.data) {
-        // Lọc các phiếu có status = 'QC_Checked' (chưa cất hàng)
-        const qcCheckedReceipts = response.data.filter(r => r.status === 'QC_Checked');
-        
-        // Map thành PutAwayTask
-        const tasks: PutAwayTask[] = qcCheckedReceipts.map(receipt => ({
-          taskId: receipt.id,
-          taskType: 'putaway',
-          receiptId: receipt.id,
-          details: receipt.details,
-          totalItems: receipt.details.reduce((sum, d) => sum + d.actualQuantity, 0),
-          status: receipt.status,
-        }));
-        
-        setPutAwayTasks(tasks);
-      } else {
-        Alert.alert('Lỗi', response?.message || 'Không thể tải danh sách phiếu nhập');
-      }
-    } catch (error: any) {
-      console.error('❌ Lỗi tải danh sách phiếu nhập:', error);
-      Alert.alert('Lỗi', 'Không thể kết nối đến server');
+      const [allReceipts, allIssues] = await Promise.all([
+        receiptService.getAll(),
+        issueService.getAll(),
+      ]);
+
+      // Lọc phiếu nhập đã duyệt QC → đang chờ thủ kho cất hàng
+      setPendingReceipts(allReceipts.filter(r => r.status === 'QC_Checked'));
+
+      // Lọc lệnh xuất đang trong giai đoạn nhặt hàng
+      setPickingIssues(allIssues.filter(i => i.status === 'Picking'));
+    } catch (e: any) {
+      setError(e.message || 'Không thể tải dữ liệu');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  // ──────────────────────────────────────────────────────────────────────
-  // 📤 LẤY DANH SÁCH PHIẾU XUẤT (PICKING)
-  // ──────────────────────────────────────────────────────────────────────
-  const fetchIssueList = async () => {
-    try {
-      setIsLoading(true);
-      const response = await inventoryService.getIssueList();
-      
-      if (response?.success && response.data) {
-        // Lọc các phiếu có status = 'Pending' (chưa nhặt hàng)
-        const pendingIssues = response.data.filter(i => 
-          i.status === 'Pending' || i.status === 'Picking'
-        );
-        
-        // Map thành PickingTask
-        const tasks: PickingTask[] = pendingIssues.map(issue => ({
-          taskId: issue.id,
-          taskType: 'picking',
-          issueId: issue.id,
-          details: issue.details,
-          totalItems: issue.details.reduce((sum, d) => sum + d.quantityToPick, 0),
-          status: issue.status,
-        }));
-        
-        setPickingTasks(tasks);
-      } else {
-        Alert.alert('Lỗi', response?.message || 'Không thể tải danh sách phiếu xuất');
-      }
-    } catch (error: any) {
-      console.error('❌ Lỗi tải danh sách phiếu xuất:', error);
-      Alert.alert('Lỗi', 'Không thể kết nối đến server');
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Tải dữ liệu khi component focus
+  // Tải lại dữ liệu mỗi lần màn hình được focus (sau khi cất hàng xong → quay về)
   useFocusEffect(
-    React.useCallback(() => {
-      if (activeTab === 'putaway') {
-        fetchReceiptList();
-      } else {
-        fetchIssueList();
-      }
-    }, [activeTab])
+    useCallback(() => {
+      loadData();
+    }, [loadData])
   );
 
-  // ──────────────────────────────────────────────────────────────────────
-  // 🔄 REFRESH DATA
-  // ──────────────────────────────────────────────────────────────────────
-  const handleRefresh = () => {
-    setRefreshing(true);
-    if (activeTab === 'putaway') {
-      fetchReceiptList();
-    } else {
-      fetchIssueList();
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleReceiptPress = (receipt: ReceiptDto) => {
+    navigation.navigate('PutAway', { receipt });
+  };
+
+  const handleIssuePress = (issue: IssueDto) => {
+    navigation.navigate('PickingList', { issue });
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Đăng xuất', style: 'destructive', onPress: signOut },
+    ]);
+  };
+
+  // ─── Render Helpers ─────────────────────────────────────────────────────────
+
+  const renderInboundTab = () => {
+    if (loading) return <ActivityIndicator size="large" color="#4A90E2" style={styles.loader} />;
+    if (error) return <Text style={styles.errorText}>⚠️ {error}</Text>;
+    if (pendingReceipts.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📭</Text>
+          <Text style={styles.emptyText}>Không có phiếu nhập nào chờ cất hàng</Text>
+        </View>
+      );
     }
+
+    return pendingReceipts.map(receipt => (
+      <TaskCard
+        key={receipt.id}
+        taskId={receipt.id.substring(0, 8).toUpperCase()}
+        taskType="Nhập Kho"
+        quantity={receipt.receiptDetails.length}
+        onPress={() => handleReceiptPress(receipt)}
+      />
+    ));
   };
 
-  // ──────────────────────────────────────────────────────────────────────
-  // 📍 NAVIGATE TO DETAIL SCREEN
-  // ──────────────────────────────────────────────────────────────────────
-  const handleTaskPress = (task: Task) => {
-    if (task.taskType === 'putaway') {
-      navigation.navigate('PutAwayDetail', { receiptId: task.taskId, task });
-    } else {
-      navigation.navigate('PickingDetail', { issueId: task.taskId, task });
+  const renderOutboundTab = () => {
+    if (loading) return <ActivityIndicator size="large" color="#E24A4A" style={styles.loader} />;
+    if (error) return <Text style={styles.errorText}>⚠️ {error}</Text>;
+    if (pickingIssues.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>📦</Text>
+          <Text style={styles.emptyText}>Không có lệnh xuất nào đang chờ nhặt hàng</Text>
+        </View>
+      );
     }
+
+    return pickingIssues.map(issue => (
+      <TaskCard
+        key={issue.id}
+        taskId={issue.id.substring(0, 8).toUpperCase()}
+        taskType="Xuất Kho"
+        quantity={issue.issueDetails.length}
+        onPress={() => handleIssuePress(issue)}
+      />
+    ));
   };
 
-  // ──────────────────────────────────────────────────────────────────────
-  // 🎨 RENDER TASK CARD
-  // ──────────────────────────────────────────────────────────────────────
-  const renderTaskCard = ({ item }: { item: Task }) => {
-    const isPickingTask = item.taskType === 'picking';
-    const statusColor = item.status === 'QC_Checked' ? '#FF9800' : '#4CAF50';
-    
-    return (
-      <TouchableOpacity
-        style={styles.cardContainer}
-        onPress={() => handleTaskPress(item)}
-        activeOpacity={0.7}
-      >
-        <Card style={styles.card}>
-          <View style={styles.cardContent}>
-            {/* ICON + STATUS */}
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardIcon}>
-                {isPickingTask ? '📤' : '📥'}
-              </Text>
-              <View style={{ backgroundColor: statusColor, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>
-                  {item.status}
-                </Text>
-              </View>
-            </View>
-
-            {/* TITLE */}
-            <Text style={styles.taskId}>
-              {isPickingTask ? 'Phiếu Xuất' : 'Phiếu Nhập'} #{item.taskId.slice(0, 8)}
-            </Text>
-
-            {/* DETAILS */}
-            <View style={styles.detailsRow}>
-              <Text style={styles.detailLabel}>Số mục:</Text>
-              <Text style={styles.detailValue}>{item.details.length} sản phẩm</Text>
-            </View>
-
-            <View style={styles.detailsRow}>
-              <Text style={styles.detailLabel}>Tổng số lượng:</Text>
-              <Text style={styles.detailValue}>{item.totalItems} cái</Text>
-            </View>
-
-            {/* PROGRESS BAR */}
-            {isPickingTask && (
-              <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${
-                          (item.details.reduce((sum, d) => sum + d.pickedQuantity, 0) /
-                            item.totalItems) *
-                          100
-                        }%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressText}>
-                  {item.details.reduce((sum, d) => sum + d.pickedQuantity, 0)}/
-                  {item.totalItems}
-                </Text>
-              </View>
-            )}
-
-            {/* BUTTON */}
-            <Button
-              mode="contained"
-              style={styles.actionButton}
-              labelStyle={{ color: '#fff', fontWeight: '600' }}
-              onPress={() => handleTaskPress(item)}
-            >
-              {isPickingTask ? 'Bắt Đầu Nhặt' : 'Bắt Đầu Cất'}
-            </Button>
-          </View>
-        </Card>
-      </TouchableOpacity>
-    );
-  };
-
-  // ──────────────────────────────────────────────────────────────────────
-  // 📊 RENDER EMPTY STATE
-  // ──────────────────────────────────────────────────────────────────────
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>
-        {activeTab === 'putaway' ? '📥' : '📤'}
-      </Text>
-      <Text style={styles.emptyText}>
-        {activeTab === 'putaway'
-          ? 'Không có phiếu nhập nào chờ cất hàng'
-          : 'Không có phiếu xuất nào chờ nhặt hàng'}
-      </Text>
-      <Button
-        mode="contained"
-        style={styles.refreshButton}
-        onPress={handleRefresh}
-      >
-        Tải Lại
-      </Button>
-    </View>
-  );
-
-  const currentTasks = activeTab === 'putaway' ? putAwayTasks : pickingTasks;
+  // ─── UI ─────────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Danh Sách Công Việc</Text>
-        <Text style={styles.headerSubtitle}>
-          {activeTab === 'putaway' ? 'Cất Hàng' : 'Nhặt Hàng'}
-        </Text>
+        <View>
+          <Text style={styles.headerTitle}>WMS</Text>
+          <Text style={styles.headerSubtitle}>
+            Xin chào, {user?.username || 'Thủ kho'} 👋
+          </Text>
+        </View>
+        <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Đăng xuất</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* SUMMARY BADGES */}
+      <View style={styles.summaryRow}>
+        <View style={[styles.badge, { backgroundColor: '#EBF4FF' }]}>
+          <Text style={[styles.badgeCount, { color: '#4A90E2' }]}>
+            {pendingReceipts.length}
+          </Text>
+          <Text style={styles.badgeLabel}>Chờ cất hàng</Text>
+        </View>
+        <View style={[styles.badge, { backgroundColor: '#FFF0F0' }]}>
+          <Text style={[styles.badgeCount, { color: '#E24A4A' }]}>
+            {pickingIssues.length}
+          </Text>
+          <Text style={styles.badgeLabel}>Đang nhặt hàng</Text>
+        </View>
       </View>
 
       {/* TABS */}
-      <View style={styles.tabContainer}>
+      <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'putaway' && styles.activeTab]}
-          onPress={() => setActiveTab('putaway')}
+          style={[styles.tab, activeTab === 'inbound' && styles.tabActive]}
+          onPress={() => setActiveTab('inbound')}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'putaway' && styles.activeTabText,
-            ]}
-          >
-            📥 Cất Hàng ({putAwayTasks.length})
+          <Text style={[styles.tabText, activeTab === 'inbound' && styles.tabTextActive]}>
+            📥 Nhập Kho ({pendingReceipts.length})
           </Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'picking' && styles.activeTab]}
-          onPress={() => setActiveTab('picking')}
+          style={[styles.tab, activeTab === 'outbound' && styles.tabActive]}
+          onPress={() => setActiveTab('outbound')}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'picking' && styles.activeTabText,
-            ]}
-          >
-            📤 Nhặt Hàng ({pickingTasks.length})
+          <Text style={[styles.tabText, activeTab === 'outbound' && styles.tabTextActive]}>
+            📤 Xuất Kho ({pickingIssues.length})
           </Text>
         </TouchableOpacity>
       </View>
 
+<<<<<<< HEAD
       <Divider />
 
       {/* TASK LIST */}
@@ -308,20 +213,148 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         />
       )}
     </SafeAreaView>
+=======
+      {/* TASK LIST */}
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+            colors={['#4A90E2']}
+          />
+        }
+      >
+        {activeTab === 'inbound' ? renderInboundTab() : renderOutboundTab()}
+      </ScrollView>
+    </View>
+>>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
   );
 };
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+<<<<<<< HEAD
     backgroundColor: '#f5f5f5',
+=======
+    backgroundColor: '#F4F6F8',
+>>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
   },
-
   header: {
     backgroundColor: '#4A90E2',
+<<<<<<< HEAD
+=======
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
+  },
+  logoutBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  badge: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  badgeCount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  badgeLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 8,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: '#4A90E2',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  loader: {
+    marginTop: 60,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 60,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#888',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: '#E24A4A',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 40,
+>>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+<<<<<<< HEAD
 
   headerTitle: {
     fontSize: 24,
@@ -487,4 +520,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     minWidth: 150,
   },
+=======
+>>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
 });

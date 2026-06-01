@@ -1,4 +1,3 @@
-// mobile-app/src/presentation/navigation/MainTabs.tsx
 import React from 'react';
 import {
   createBottomTabNavigator,
@@ -70,11 +69,25 @@ export const MainTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#9CA3AF',
+
         headerShown: false,
         tabBarLabelStyle: {
           fontSize: 11,
           marginBottom: 4,
           fontWeight: '500',
+
+        headerShown: false, // Header tự quản lý trong từng màn hình (Home có header riêng)
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          height: 60,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+>>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
         },
       }}
     >
