@@ -1,5 +1,8 @@
 // mobile-app/src/presentation/navigation/MainTabs.tsx
-import {PickingScanner} from '../../components/PickingScanner'; 
+// Bottom Tab Navigator - Tuần 6 cập nhật bởi Đức Anh
+// Xóa tab Scanner riêng biệt (PickingScanner là component, không phải full screen)
+// Việc scan được thực hiện qua navigation từ HomeScreen → PutAway / PickingDetail
+
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,18 +18,17 @@ export const MainTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#9CA3AF',
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#4A90E2',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 18,
+        headerShown: false, // Header tự quản lý trong từng màn hình (Home có header riêng)
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          height: 60,
+          paddingBottom: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          marginBottom: 4,
+          fontWeight: '600',
         },
       }}
     >
@@ -63,16 +65,6 @@ export const MainTabs = () => {
           ),
         }}
       />
-      <Tab.Screen 
-        name="Scanner" 
-        component={PickingScanner} 
-        options={{ 
-            title: 'Quét Mã', 
-            tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="barcode-scan" color={color} size={size} />
-            ),
-        }} 
-        />
     </Tab.Navigator>
   );
 };
