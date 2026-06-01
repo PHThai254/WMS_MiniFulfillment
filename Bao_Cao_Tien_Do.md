@@ -188,7 +188,7 @@ IssueService.GeneratePickingPlanAsync()
 | 1 | `RunOcrAsync` vẫn đang trả về **mock data cứng** thay vì gọi thật Gemini API | `OperationServices.cs` L.211–224 | Kết nối thực vào `GeminiOcrService.RunOcrAsync()`. Đây là lỗi nghiêm trọng nếu demo. |
 | 2 | `SaveReceiptFromOcrAsync` lấy `WarehouseId` từ Zone đầu tiên trong danh sách (`request.Items.First()`) — sẽ lỗi nếu danh sách rỗng | `OperationServices.cs` L.251 | Validate `request.Items.Any()` trước, hoặc lấy `WarehouseId` từ JWT Claims. |
 | 3 | `CompletionCheckService.CheckAndCompleteReceiptAsync` đang mở Transaction riêng sau khi `CompletePutAwayAsync` đã commit xong — gọi kép không cần thiết | `OperationServices.cs` L.198–203 | Tích hợp logic kiểm tra vào cùng Transaction của `CompletePutAwayAsync`, bỏ Transaction trong `CompletionCheckService` cho luồng Receipt. |
-| 4 | `IssuesPage.tsx` sử dụng `useEffect` với `fetchIssues` trong dependency array của effect load warehouse/customer/product — sẽ trigger load lại mỗi khi auto-refresh | `IssuesPage.tsx` L.64–71 | Tách dependency: `useEffect(() => { loadOptions(); }, [])` riêng, không phụ thuộc `fetchIssues`. |
+| 4 | ~~`IssuesPage.tsx` sử dụng `useEffect` với `fetchIssues` trong dependency array của effect load warehouse/customer/product — sẽ trigger load lại mỗi khi auto-refresh~~ | `IssuesPage.tsx` L.64–71 | ✅ Đã xử lý xong. Tách dependency: `useEffect(() => { loadOptions(); }, [])` riêng, không phụ thuộc `fetchIssues`. |
 | 5 | `GeminiOcrService` và `OcrController` thiếu timeout config — ảnh nặng có thể gây lỗi 504 | `GeminiOcrService.cs` | Thêm `HttpClient.Timeout` và cân nhắc thêm `Polly` Retry. |
 
 ### 🚨 Critical: Đã xử lý xong trước Demo

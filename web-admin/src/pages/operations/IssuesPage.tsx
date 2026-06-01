@@ -68,7 +68,7 @@ export const IssuesPage: React.FC = () => {
                 if (cRes?.success) setCustomers(cRes.data || []);
                 if (pRes?.success) setProducts(pRes.data || []);
             });
-    }, [fetchIssues]);
+    }, []);
 
     const handleCreate = async () => {
         try {
