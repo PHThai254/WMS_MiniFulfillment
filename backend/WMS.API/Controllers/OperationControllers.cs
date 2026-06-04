@@ -227,6 +227,16 @@ public class IssuesController : ControllerBase
             return Ok(ApiResponse<IssueDto>.Succeeded(data, "Bàn giao vận chuyển thành công."));
         }
         catch (DbUpdateConcurrencyException)
+        {
+            // Xử lý lỗi khi có người khác vừa tác động vào dữ liệu cùng lúc
+            return Conflict(ApiResponse<IssueDto>.Failed("Dữ liệu tồn kho hoặc phiếu đã bị thay đổi bởi người khác. Vui lòng tải lại và thử lại."));
+        }
+        catch (Exception ex)
+        {
+            // Bắt thêm lỗi hệ thống
+            return StatusCode(500, ApiResponse<IssueDto>.Failed("Lỗi hệ thống khi bàn giao: " + ex.Message));
+        }
+    } 
 
     /// <summary>
     /// Kiểm tra và tự động chuyển Issue sang Handover nếu tất cả hàng đã pick đủ
@@ -234,6 +244,7 @@ public class IssuesController : ControllerBase
     /// </summary>
     [HttpPost("{id:guid}/check-completion")]
     [Authorize(Roles = "Staff,Admin")]
+        
     public async Task<ActionResult<ApiResponse<object>>> CheckCompletion(Guid id)
     {
         try
@@ -253,14 +264,7 @@ public class IssuesController : ControllerBase
             return BadRequest(ApiResponse<object>.Failed(ex.Message));
         }
     }
-        {
-            // Tồn kho bị thay đổi bởi người dùng khác - xung đột concurrency
-            return Conflict(ApiResponse<IssueDto>.Failed(
-                "Tồn kho đã được thay đổi bởi người dùng khác. Vui lòng tải lại dữ liệu và thử lại."));
-        }
-    }
 }
-
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
