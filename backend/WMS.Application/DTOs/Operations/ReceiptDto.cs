@@ -7,7 +7,8 @@ public record ReceiptDto(
     string WarehouseName,
     Guid? SupplierId,
     string? SupplierName,
-    string CreatedBy,
+    Guid CreatedByUserId,
+    string? CreatedByUsername,
     ReceiptStatus Status,
     DateTime CreatedAt,
     List<ReceiptDetailDto> ReceiptDetails

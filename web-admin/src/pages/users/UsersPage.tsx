@@ -151,7 +151,11 @@ export const UsersPage: React.FC = () => {
                                         }
                                     }}
                                 >
-                                    {roles.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
+                                     {roles
+                                        // ✅ Chỉ cho phép chọn 3 role hợp lệ trong hệ thống.
+                                        // Manager đã bị loại bỏ hoàn toàn – KHÔNG được xuất hiện ở đây.
+                                        .filter(r => ['Admin', 'QA_QC', 'Staff'].includes(r.name))
+                                        .map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>

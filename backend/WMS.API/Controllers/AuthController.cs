@@ -11,7 +11,7 @@ namespace WMS.API.Controllers;
 /// AuthController: Xử lý các request liên quan đến xác thực (Authentication).
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;

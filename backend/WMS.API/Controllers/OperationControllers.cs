@@ -9,7 +9,7 @@ using WMS.Infrastructure.Data;
 namespace WMS.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Receipts")]
 [Authorize]
 public class ReceiptsController : ControllerBase
 {
@@ -46,7 +46,7 @@ public class ReceiptsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "create_receipt")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> Create([FromBody] CreateReceiptRequest request)
     {
         var createdBy = _currentUser.GetCurrentUserId() ?? "system";
@@ -55,7 +55,7 @@ public class ReceiptsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve-qc")]
-    [Authorize(Roles = "QA_QC,Admin")]
+    [Authorize(Policy = "approve_qc_receipt")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> ApproveQc(Guid id, [FromBody] ApproveReceiptRequest request)
     {
         var data = await _service.ApproveQcAsync(id, request);
@@ -63,7 +63,7 @@ public class ReceiptsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve-ocr")]
-    [Authorize(Roles = "QA_QC,Admin")]
+    [Authorize(Policy = "approve_ocr_receipt")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> ApproveOcr(Guid id, [FromBody] ApproveOcrRequest request)
     {
         var data = await _service.ApproveOcrAsync(id, request);
@@ -71,7 +71,7 @@ public class ReceiptsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/complete-putaway")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "complete_putaway")]
     public async Task<ActionResult<ApiResponse<ReceiptDto>>> CompletePutAway(Guid id)
     {
         try
@@ -92,7 +92,7 @@ public class ReceiptsController : ControllerBase
     /// Luồng: Upload ảnh -> OCR Gemini -> QA/QC duyệt -> Lưu Receipt
     /// </summary>
     [HttpPost("save-from-ocr")]
-    [Authorize(Roles = "QA_QC,Admin")]
+    [Authorize(Policy = "save_from_ocr")]
     public async Task<ActionResult<ApiResponse<object>>> SaveFromOcr([FromBody] SaveOcrReceiptRequest request)
     {
         try
@@ -108,7 +108,7 @@ public class ReceiptsController : ControllerBase
     }
 
     [HttpPost("ocr")]
-    [Authorize(Roles = "QA_QC,Admin")]
+    [Authorize(Policy = "run_ocr")]
     public async Task<ActionResult<ApiResponse<OcrResultDto>>> RunOcr(IFormFile image)
     {
         if (image is null || image.Length == 0)
@@ -124,7 +124,7 @@ public class ReceiptsController : ControllerBase
     /// (Thường được gọi tự động, nhưng có thể gọi manual nếu cần)
     /// </summary>
     [HttpPost("{id:guid}/check-completion")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "complete_putaway")]
     public async Task<ActionResult<ApiResponse<object>>> CheckCompletion(Guid id)
     {
         try
@@ -147,7 +147,7 @@ public class ReceiptsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Issues")]
 [Authorize]
 public class IssuesController : ControllerBase
 {
@@ -184,7 +184,7 @@ public class IssuesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "create_issue")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> Create([FromBody] CreateIssueRequest request)
     {
         var createdBy = _currentUser.GetCurrentUserId() ?? "system";
@@ -193,7 +193,7 @@ public class IssuesController : ControllerBase
     }
 
     [HttpGet("{id:guid}/picking-plan")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "get_picking_plan")]
     public async Task<ActionResult<ApiResponse<PickingPlanDto>>> GetPickingPlan(Guid id)
     {
         var data = await _service.GeneratePickingPlanAsync(id);
@@ -201,7 +201,7 @@ public class IssuesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/confirm-pick")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "confirm_pick")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> ConfirmPick(Guid id, [FromBody] ConfirmPickRequest request)
     {
         try
@@ -218,7 +218,7 @@ public class IssuesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/handover")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "handover_issue")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> Handover(Guid id)
     {
         try
@@ -243,7 +243,7 @@ public class IssuesController : ControllerBase
     /// (Thường được gọi tự động, nhưng có thể gọi manual nếu cần)
     /// </summary>
     [HttpPost("{id:guid}/check-completion")]
-    [Authorize(Roles = "Staff,Admin")]
+    [Authorize(Policy = "confirm_pick")]
         
     public async Task<ActionResult<ApiResponse<object>>> CheckCompletion(Guid id)
     {
@@ -266,7 +266,7 @@ public class IssuesController : ControllerBase
     }
 }
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Inventory")]
 [Authorize]
 public class InventoryController : ControllerBase
 {
@@ -303,7 +303,7 @@ public class InventoryController : ControllerBase
     }
 
     [HttpPost("adjust")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "adjust_inventory")]
     public async Task<ActionResult<ApiResponse<object>>> Adjust([FromBody] WMS.Application.DTOs.Inventory.AdjustInventoryRequest request)
     {
         var adjustedBy = _currentUser.GetCurrentUserId() ?? "system";
@@ -313,7 +313,7 @@ public class InventoryController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Analytics")]
 [Authorize]
 public class AnalyticsController : ControllerBase
 {
@@ -321,21 +321,24 @@ public class AnalyticsController : ControllerBase
     public AnalyticsController(IAnalyticsService service) => _service = service;
 
     [HttpGet("kpis")]
+    [Authorize(Policy = "view_analytics")]
     public async Task<ActionResult<ApiResponse<WMS.Application.DTOs.Analytics.DashboardKpiDto>>> GetKpis()
         => Ok(ApiResponse<WMS.Application.DTOs.Analytics.DashboardKpiDto>.Succeeded(await _service.GetKpiAsync()));
 
     [HttpGet("low-stock")]
+    [Authorize(Policy = "view_analytics")]
     public async Task<ActionResult<ApiResponse<List<WMS.Application.DTOs.Analytics.LowStockProductDto>>>> GetLowStock([FromQuery] int top = 5)
         => Ok(ApiResponse<List<WMS.Application.DTOs.Analytics.LowStockProductDto>>.Succeeded(await _service.GetLowStockProductsAsync(top)));
 
     [HttpGet("stock-movements")]
+    [Authorize(Policy = "view_analytics")]
     public async Task<ActionResult<ApiResponse<List<WMS.Application.DTOs.Analytics.StockMovementDto>>>> GetStockMovements([FromQuery] int days = 7)
         => Ok(ApiResponse<List<WMS.Application.DTOs.Analytics.StockMovementDto>>.Succeeded(await _service.GetStockMovementsAsync(days)));
 }
 
 [ApiController]
-[Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Route("api/Users")]
+[Authorize(Policy = "manage_users")]
 public class UsersController : ControllerBase
 {
     private readonly IUserManagementService _service;

@@ -46,7 +46,7 @@ public class ReceiptService : IReceiptService
             Id = Guid.NewGuid(),
             WarehouseId = request.WarehouseId,
             SupplierId = request.SupplierId,
-            CreatedBy = createdBy,
+            CreatedByUserId = Guid.TryParse(createdBy, out var uid1) ? uid1 : Guid.Empty,
             Status = ReceiptStatus.Draft,
             CreatedAt = DateTime.UtcNow
         };
@@ -190,7 +190,7 @@ public class ReceiptService : IReceiptService
                     ProductId = d.ProductId,
                     ZoneId = d.ZoneId!.Value,
                     QuantityChange = d.ActualQuantity,
-                    TransactionType = "INBOUND",
+                    TransactionType = TransactionType.Inbound,
                     ReferenceId = receipt.Id,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -257,7 +257,7 @@ public class ReceiptService : IReceiptService
                 Id = Guid.NewGuid(),
                 WarehouseId = warehouseId,
                 SupplierId = request.SupplierId,
-                CreatedBy = createdBy,
+                CreatedByUserId = Guid.TryParse(createdBy, out var uid2) ? uid2 : Guid.Empty,
                 Status = ReceiptStatus.QC_Checked, // Trực tiếp set thành QC_Checked vì đã duyệt
                 CreatedAt = DateTime.UtcNow
             };
@@ -313,7 +313,7 @@ public class ReceiptService : IReceiptService
                     ProductId = item.ProductId,
                     ZoneId = item.ZoneId,
                     QuantityChange = item.Quantity,
-                    TransactionType = "INBOUND",
+                    TransactionType = TransactionType.Inbound,
                     ReferenceId = receipt.Id,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -335,7 +335,7 @@ public class ReceiptService : IReceiptService
 
     private static ReceiptDto MapToDto(Receipt r) => new(
         r.Id, r.WarehouseId, r.Warehouse?.Name ?? string.Empty,
-        r.SupplierId, r.Supplier?.Name, r.CreatedBy, r.Status, r.CreatedAt,
+        r.SupplierId, r.Supplier?.Name, r.CreatedByUserId, r.CreatedByUser?.Username, r.Status, r.CreatedAt,
         r.ReceiptDetails.Select(d => new ReceiptDetailDto(
             d.Id, d.ReceiptId, d.ProductId,
             d.Product?.Name ?? string.Empty, d.Product?.Barcode ?? string.Empty,
@@ -382,7 +382,7 @@ public class IssueService : IIssueService
             Id = Guid.NewGuid(),
             WarehouseId = request.WarehouseId,
             CustomerId = request.CustomerId,
-            CreatedBy = createdBy,
+            CreatedByUserId = Guid.TryParse(createdBy, out var uid3) ? uid3 : Guid.Empty,
             Status = IssueStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -471,7 +471,7 @@ public class IssueService : IIssueService
                 ProductId = detail.ProductId,
                 ZoneId = detail.ZoneId ?? Guid.Empty,
                 QuantityChange = -request.PickedQuantity,
-                TransactionType = "OUTBOUND",
+                TransactionType = TransactionType.Outbound,
                 ReferenceId = issue.Id,
                 CreatedAt = DateTime.UtcNow
             });
@@ -511,7 +511,7 @@ public class IssueService : IIssueService
 
     private static IssueDto MapToDto(Issue i) => new(
         i.Id, i.WarehouseId, i.Warehouse?.Name ?? string.Empty,
-        i.CustomerId, i.Customer?.Name, i.CreatedBy, i.Status, i.CreatedAt,
+        i.CustomerId, i.Customer?.Name, i.CreatedByUserId, i.CreatedByUser?.Username, i.Status, i.CreatedAt,
         i.IssueDetails.Select(d => new IssueDetailDto(
             d.Id, d.IssueId, d.ProductId, d.Product?.Name ?? string.Empty, d.Product?.Barcode ?? string.Empty,
             d.ZoneId, d.Zone?.Name, d.QuantityToPick, d.PickedQuantity)).ToList()

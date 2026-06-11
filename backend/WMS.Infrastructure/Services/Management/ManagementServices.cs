@@ -51,7 +51,7 @@ public class InventoryService : IInventoryService
             .Skip((pageIndex - 1) * pageSize).Take(pageSize)
             .Select(t => new InventoryTransactionDto(
                 t.Id, t.ProductId, t.Product!.Name, t.ZoneId, t.Zone!.Name,
-                t.QuantityChange, t.TransactionType, t.ReferenceId, t.CreatedAt)).ToListAsync();
+                t.QuantityChange, t.TransactionType.ToString(), t.ReferenceId, t.CreatedAt)).ToListAsync();
                 
         return new WMS.Application.Wrappers.PagedResult<InventoryTransactionDto> { Items = items, TotalCount = total, PageIndex = pageIndex, PageSize = pageSize };
     }
@@ -65,7 +65,7 @@ public class InventoryService : IInventoryService
         _db.InventoryTransactions.Add(new InventoryTransaction
         {
             Id = Guid.NewGuid(), ProductId = request.ProductId, ZoneId = request.ZoneId,
-            QuantityChange = change, TransactionType = "ADJUST", CreatedAt = DateTime.UtcNow
+            QuantityChange = change, TransactionType = TransactionType.Adjust, CreatedAt = DateTime.UtcNow
         });
         await _db.SaveChangesAsync();
     }
@@ -133,8 +133,8 @@ public class AnalyticsService : IAnalyticsService
             var dayTx = txs.Where(t => t.CreatedAt.Date == date);
             return new StockMovementDto(
                 date.ToString("dd/MM"),
-                dayTx.Where(t => t.TransactionType == "INBOUND").Sum(t => t.QuantityChange),
-                Math.Abs(dayTx.Where(t => t.TransactionType == "OUTBOUND").Sum(t => t.QuantityChange)));
+                dayTx.Where(t => t.TransactionType == TransactionType.Inbound).Sum(t => t.QuantityChange),
+                Math.Abs(dayTx.Where(t => t.TransactionType == TransactionType.Outbound).Sum(t => t.QuantityChange)));
         }).ToList();
     }
 }
