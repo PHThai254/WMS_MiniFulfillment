@@ -43,6 +43,20 @@ export const LoginScreen = ({ navigation }: any) => {
                 if (meResponse.data.success) {
                     const userData = meResponse.data.data;
 
+                    // ✅ ROLE GUARD: App mobile CHỈ dành cho Staff (thủ kho).
+                    // Admin và QA_QC phải sử dụng Web Admin.
+                    if (userData.role !== 'Staff') {
+                        // Xóa token vừa lưu để không duy trì session
+                        await SecureStore.deleteItemAsync('accessToken');
+                        await SecureStore.deleteItemAsync('refreshToken');
+                        Alert.alert(
+                            '⛔ Không có quyền truy cập',
+                            `Tài khoản "${userData.username}" (${userData.role}) không được phép dùng app này.\n\nApp dành riêng cho Thủ kho (Staff).\nVui lòng sử dụng Web Admin.`,
+                            [{ text: 'Đóng' }]
+                        );
+                        return; // Dừng lại, không gọi signIn()
+                    }
+
                     await signIn({
                         username: userData.username,
                         role: userData.role,

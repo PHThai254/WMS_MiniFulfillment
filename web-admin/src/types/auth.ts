@@ -23,7 +23,7 @@ export interface RefreshTokenResponse {
 export interface IUser {
     id: string;
     username: string;
-    role: 'Admin' | 'QA_QC' | 'Staff' | 'Manager';
+    role: 'Admin' | 'QA_QC' | 'Staff';
     warehouseId?: string | null;
     warehouseName?: string;
 }

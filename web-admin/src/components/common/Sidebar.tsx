@@ -23,6 +23,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    // ✅ PHÂN QUYỀN MENU THEO 3 ROLES MỚI:
+    // - Admin: Toàn bộ menu (master-data, operations đầy đủ, inventory, analytics, users)
+    // - QA_QC: Operations (chỉ Receipts + AI OCR), Inventory, Analytics
+    // - Staff: Chỉ Dashboard (Staff dùng Mobile App, không phải Web Admin)
+    const isAdmin = user?.role === 'Admin';
+    const isQaQc = user?.role === 'QA_QC';
+
     const menuItems: any[] = [
         {
             key: 'dashboard',
@@ -32,8 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         },
     ];
 
-    // Master Data - All roles can see
-    if (user?.role === 'Admin') {
+    // ─── Master Data: CHỈ Admin ───────────────────────────────────────────────
+    if (isAdmin) {
         menuItems.push({
             key: 'master-data',
             icon: <DatabaseOutlined />,
@@ -73,65 +80,77 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false }) => {
         });
     }
 
-    // Operations
-    menuItems.push({
-        key: 'operations',
-        icon: <FileTextOutlined />,
-        label: 'Vận hành',
-        children: [
+    // ─── Operations: Admin (đầy đủ) | QA_QC (chỉ Receipts để duyệt) ──────────
+    if (isAdmin || isQaQc) {
+        const operationChildren: any[] = [
             {
                 key: 'receipts',
                 label: 'Phiếu Nhập (Inbound)',
                 onClick: () => navigate('/receipts'),
             },
-            {
+        ];
+
+        // Phiếu Xuất chỉ Admin mới được tạo, QA_QC không liên quan
+        if (isAdmin) {
+            operationChildren.push({
                 key: 'issues',
                 label: 'Phiếu Xuất (Outbound)',
                 onClick: () => navigate('/issues'),
-            },
-        ],
-    });
+            });
+        }
 
-    // Inventory
-    menuItems.push({
-        key: 'inventory',
-        icon: <ShopOutlined />,
-        label: 'Tồn kho',
-        children: [
-            {
-                key: 'stock-summary',
-                label: 'Tổng hợp Tồn kho',
-                onClick: () => navigate('/inventory/stock-summary'),
-            },
-            {
-                key: 'transactions',
-                label: 'Lịch sử Giao dịch',
-                onClick: () => navigate('/inventory/transactions'),
-            },
-        ],
-    });
+        menuItems.push({
+            key: 'operations',
+            icon: <FileTextOutlined />,
+            label: 'Vận hành',
+            children: operationChildren,
+        });
+    }
 
-    // Analytics
-    menuItems.push({
-        key: 'analytics',
-        icon: <BarChartOutlined />,
-        label: 'Phân tích & Báo cáo',
-        children: [
-            {
-                key: 'reports',
-                label: 'Báo cáo',
-                onClick: () => navigate('/analytics/reports'),
-            },
-            {
-                key: 'kpis',
-                label: 'Chỉ số KPIs',
-                onClick: () => navigate('/analytics/kpis'),
-            },
-        ],
-    });
+    // ─── Inventory: Admin + QA_QC ─────────────────────────────────────────────
+    if (isAdmin || isQaQc) {
+        menuItems.push({
+            key: 'inventory',
+            icon: <ShopOutlined />,
+            label: 'Tồn kho',
+            children: [
+                {
+                    key: 'stock-summary',
+                    label: 'Tổng hợp Tồn kho',
+                    onClick: () => navigate('/inventory/stock-summary'),
+                },
+                {
+                    key: 'transactions',
+                    label: 'Lịch sử Giao dịch',
+                    onClick: () => navigate('/inventory/transactions'),
+                },
+            ],
+        });
+    }
 
-    // User Management - Admin only (VẪN GIỮ LẠI LỆNH IF ĐỂ BẢO MẬT)
-    if (user?.role === 'Admin') {
+    // ─── Analytics: Admin + QA_QC ─────────────────────────────────────────────
+    if (isAdmin || isQaQc) {
+        menuItems.push({
+            key: 'analytics',
+            icon: <BarChartOutlined />,
+            label: 'Phân tích & Báo cáo',
+            children: [
+                {
+                    key: 'reports',
+                    label: 'Báo cáo',
+                    onClick: () => navigate('/analytics/reports'),
+                },
+                {
+                    key: 'kpis',
+                    label: 'Chỉ số KPIs',
+                    onClick: () => navigate('/analytics/kpis'),
+                },
+            ],
+        });
+    }
+
+    // ─── User Management: CHỈ Admin ───────────────────────────────────────────
+    if (isAdmin) {
         menuItems.push({
             key: 'users',
             icon: <UserOutlined />,

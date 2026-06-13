@@ -50,7 +50,8 @@ public class InventoryService : IInventoryService
         var items = await query.OrderByDescending(t => t.CreatedAt)
             .Skip((pageIndex - 1) * pageSize).Take(pageSize)
             .Select(t => new InventoryTransactionDto(
-                t.Id, t.ProductId, t.Product!.Name, t.ZoneId, t.Zone!.Name,
+                t.Id, t.ProductId, t.Product != null ? t.Product.Name : string.Empty,
+                t.ZoneId, t.Zone != null ? t.Zone.Name : string.Empty,
                 t.QuantityChange, t.TransactionType.ToString(), t.ReferenceId, t.CreatedAt)).ToListAsync();
                 
         return new WMS.Application.Wrappers.PagedResult<InventoryTransactionDto> { Items = items, TotalCount = total, PageIndex = pageIndex, PageSize = pageSize };
@@ -105,7 +106,7 @@ public class AnalyticsService : IAnalyticsService
             ProductId = g.Key.ProductId,
             ProductName = g.Key.ProductName,
             ProductBarcode = g.Key.ProductBarcode,
-            TotalQuantity = g.Sum(i => i.Quantity) // Tính tổng dưới SQL
+            TotalQuantity = g.Sum(i => i.Quantity)
         })
         .OrderBy(x => x.TotalQuantity)
         .Take(top)

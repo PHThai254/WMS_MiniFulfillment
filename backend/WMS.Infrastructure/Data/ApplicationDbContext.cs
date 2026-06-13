@@ -212,41 +212,42 @@ public class ApplicationDbContext : DbContext
 
         // ════════════════════════════════════════════════════════════════════
         // 10. GLOBAL QUERY FILTER – Tự động lọc theo WarehouseId từ JWT
-        //     PHẢI dùng lambda expression tham chiếu _currentUserContext
-        //     (KHÔNG gọi GetCurrentWarehouseId() trực tiếp ở đây vì DbContext
-        //     được resolve 1 lần, còn filter chạy per-request)
         // ════════════════════════════════════════════════════════════════════
         modelBuilder.Entity<Inventory>()
             .HasQueryFilter(i =>
-                !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || i.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || i.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
 
         modelBuilder.Entity<Receipt>()
             .HasQueryFilter(r =>
-                !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || r.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || r.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
 
         modelBuilder.Entity<Issue>()
             .HasQueryFilter(i =>
-                !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || i.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || i.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
 
+        // InventoryTransaction không có WarehouseId trực tiếp → đi qua Zone.WarehouseId
         modelBuilder.Entity<InventoryTransaction>()
             .HasQueryFilter(it =>
-                it.Zone == null
-                || !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || it.Zone.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || it.Zone!.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
 
         modelBuilder.Entity<ReceiptDetail>()
             .HasQueryFilter(rd =>
-                rd.Receipt == null
-                || !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || rd.Receipt.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || rd.Receipt!.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
 
         modelBuilder.Entity<IssueDetail>()
             .HasQueryFilter(id =>
-                id.Issue == null
-                || !_currentUserContext.GetCurrentWarehouseId().HasValue
-                || id.Issue.WarehouseId == _currentUserContext.GetCurrentWarehouseId()!.Value);
+                CurrentWarehouseId == null
+                || id.Issue!.WarehouseId == CurrentWarehouseId.GetValueOrDefault());
     }
+
+    /// <summary>
+    /// Helper property để EF Core capture per-request từ HttpContext hiện tại.
+    /// Dùng GetValueOrDefault() trong filter thay vì .Value để tránh nullable exception.
+    /// </summary>
+    private Guid? CurrentWarehouseId => _currentUserContext.GetCurrentWarehouseId();
 }
