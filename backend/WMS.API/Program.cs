@@ -94,6 +94,7 @@ var allPermissions = new[]
     // Receipt
     "create_receipt", "view_receipt", "approve_qc_receipt",
     "approve_ocr_receipt", "complete_putaway", "save_from_ocr", "run_ocr",
+    "approve_qc", // Policy dùng cho luồng QA/QC duyệt và lưu kết quả OCR
     // Issue
     "create_issue", "view_issue", "get_picking_plan", "confirm_pick", "handover_issue",
     // Inventory

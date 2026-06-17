@@ -19,7 +19,8 @@ namespace WMS.Infrastructure.Services
             _configuration = configuration;
         }
 
-        public async Task<string> ExtractInvoiceDataAsync(string base64Image)
+        // BƯỚC 1: Cập nhật hàm để nhận thêm tham số mimeType
+        public async Task<string> ExtractInvoiceDataAsync(string base64Image, string mimeType)
         {
             var apiKey = _configuration["Gemini:ApiKey"];
             var baseUrl = _configuration["Gemini:BaseUrl"] ?? "https://generativelanguage.googleapis.com";
@@ -67,9 +68,8 @@ IMPORTANT:
                             {
                                 inline_data = new
                                 {
-                                    // Base64 payload, using a generic image mime type. 
-                                    // You can adjust mime_type dynamically if needed.
-                                    mime_type = "image/jpeg", 
+                                    // BƯỚC 2: Truyền biến mimeType linh hoạt thay vì gán cứng "image/jpeg"
+                                    mime_type = mimeType, 
                                     data = base64Image
                                 }
                             }

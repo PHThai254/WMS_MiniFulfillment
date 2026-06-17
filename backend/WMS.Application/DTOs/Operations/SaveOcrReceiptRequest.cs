@@ -45,29 +45,37 @@ namespace WMS.Application.DTOs.Operations
     public class SaveOcrReceiptItemRequest
     {
         /// <summary>
-        /// ID sản phẩm (được sửa từ OCR hoặc chọn từ danh sách)
+        /// ID sản phẩm (QA/QC chọn từ danh mục)
         /// </summary>
         [Required(ErrorMessage = "ProductId là bắt buộc")]
         [JsonPropertyName("productId")]
         public Guid ProductId { get; set; }
 
         /// <summary>
-        /// ID Zone - nơi cần cất hàng
+        /// ID Zone - nơi cần cất hàng (QA/QC chọn từ danh mục)
         /// </summary>
         [Required(ErrorMessage = "ZoneId là bắt buộc")]
         [JsonPropertyName("zoneId")]
         public Guid ZoneId { get; set; }
 
         /// <summary>
-        /// Số lượng hàng (được sửa từ OCR)
+        /// Số lượng AI đọc được từ hóa đơn (ExpectedQuantity)
         /// </summary>
-        [Required(ErrorMessage = "Quantity là bắt buộc")]
-        [Range(1, int.MaxValue, ErrorMessage = "Quantity phải > 0")]
-        [JsonPropertyName("quantity")]
-        public int Quantity { get; set; }
+        [Required(ErrorMessage = "ExpectedQuantity là bắt buộc")]
+        [Range(0, int.MaxValue, ErrorMessage = "ExpectedQuantity phải >= 0")]
+        [JsonPropertyName("expectedQuantity")]
+        public int ExpectedQuantity { get; set; }
 
         /// <summary>
-        /// Giá đơn vị (được sửa từ OCR)
+        /// Số lượng thực tế QA/QC đã kiểm đếm và chốt (ActualQuantity)
+        /// </summary>
+        [Required(ErrorMessage = "ActualQuantity là bắt buộc")]
+        [Range(1, int.MaxValue, ErrorMessage = "ActualQuantity phải > 0")]
+        [JsonPropertyName("actualQuantity")]
+        public int ActualQuantity { get; set; }
+
+        /// <summary>
+        /// Giá đơn vị (lấy từ OCR, QA/QC có thể sửa)
         /// </summary>
         [Required(ErrorMessage = "UnitPrice là bắt buộc")]
         [Range(0, 999999999, ErrorMessage = "UnitPrice không hợp lệ")]

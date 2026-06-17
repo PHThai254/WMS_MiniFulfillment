@@ -22,16 +22,17 @@ export interface OcrItemDto {
 }
 
 export interface SaveOcrReceiptRequest {
-  supplierId: number;
+  supplierId: string; 
   invoiceDate: string;
   items: SaveOcrReceiptItemRequest[];
   notes?: string;
 }
 
 export interface SaveOcrReceiptItemRequest {
-  productId: number;
-  zoneId: number;
-  quantity: number;
+  productId: string;        // Guid
+  zoneId: string;           // Guid
+  expectedQuantity: number; // Số lượng AI đọc được (ExpectedQuantity)
+  actualQuantity: number;   // Số lượng QA/QC chốt thực tế (ActualQuantity)
   unitPrice: number;
 }
 
@@ -72,8 +73,10 @@ class OcrService {
    * @param request Dữ liệu phiếu nhập đã được duyệt
    * @returns Promise với ID phiếu nhập mới được tạo
    */
-  async saveReceiptFromOcr(request: SaveOcrReceiptRequest): Promise<number> {
-    const response = await this.client.post<ApiResponse<{ id: number }>>(
+  // Trả về Promise<string> vì ID phiếu nhập dưới Backend cũng là Guid
+  async saveReceiptFromOcr(request: SaveOcrReceiptRequest): Promise<string> { 
+    // Ép kiểu dữ liệu trả về { id: string }
+    const response = await this.client.post<ApiResponse<{ id: string }>>( 
       API_ENDPOINTS.ocr.saveReceipt,
       request
     );
@@ -82,7 +85,8 @@ class OcrService {
       throw new Error(response.data.message || 'Không thể lưu phiếu nhập');
     }
 
-    return response.data.data?.id || 0;
+    // Trả về chuỗi rỗng '' thay vì số 0 nếu không có ID
+    return response.data.data?.id || ''; 
   }
 }
 

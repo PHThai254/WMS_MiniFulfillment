@@ -90,9 +90,10 @@ public class ReceiptsController : ControllerBase
     /// <summary>
     /// Lưu Receipt sau khi QA/QC duyệt/sửa dữ liệu OCR
     /// Luồng: Upload ảnh -> OCR Gemini -> QA/QC duyệt -> Lưu Receipt
+    /// Chọn Policy "approve_qc" vì đây là hành động chốt kết quả QA
     /// </summary>
     [HttpPost("save-from-ocr")]
-    [Authorize(Policy = "save_from_ocr")]
+    [Authorize(Policy = "approve_qc")]
     public async Task<ActionResult<ApiResponse<object>>> SaveFromOcr([FromBody] SaveOcrReceiptRequest request)
     {
         try

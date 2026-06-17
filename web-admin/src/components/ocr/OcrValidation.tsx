@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Row,
   Col,
@@ -17,10 +17,9 @@ import {
   Divider,
   Alert,
   Typography,
-  Tabs,
 } from 'antd';
-import { InboxOutlined, PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import type { RcFile, UploadFile } from 'antd/es/upload/interface';
+import { InboxOutlined, PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import type { RcFile } from 'antd/es/upload/interface';
 import type { ColumnsType } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
 import ocrService from '../../api/ocrService';
@@ -28,30 +27,26 @@ import productService from '../../api/productService';
 import supplierService from '../../api/supplierService';
 import zoneService from '../../api/zoneService';
 import type { ReceiptOcrDto, OcrItemDto } from '../../types/api';
+import type { SupplierDto } from '../../api/supplierService';
+import type { ProductDto } from '../../api/productService';
+import type { ZoneDto } from '../../api/zoneService';
 
 const { TextArea } = Input;
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-interface SupplierOption {
-  id: number;
-  name: string;
-}
-
-interface ProductOption {
-  id: number;
-  name: string;
-  sku: string;
-}
-
-interface ZoneOption {
-  id: number;
-  name: string;
+// ─── Kiểu local cho mỗi dòng item trong bảng ──────────────────────────────────
+interface OcrItemRow extends OcrItemDto {
+  key: string;
+  // productId: string   ← kế thừa từ OcrItemDto (Guid)
+  // zoneId: string      ← kế thừa từ OcrItemDto (Guid)
+  // quantity: number    ← Số lượng AI đọc → ExpectedQuantity
+  // actualQuantity: number ← Số lượng QA/QC chốt → ActualQuantity
 }
 
 /**
  * OcrValidation Component - Split View cho QA/QC duyệt hóa đơn OCR
  * Layout:
- * - Trái: Upload ảnh + Image Viewer
+ * - Trái: Upload ảnh + Image Viewer có scroll (zoom)
  * - Phải: Form dữ liệu OCR với viền đỏ cho field nghi ngờ
  */
 const OcrValidation: React.FC = () => {
@@ -60,68 +55,61 @@ const OcrValidation: React.FC = () => {
   const [imageFile, setImageFile] = useState<RcFile | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [ocrData, setOcrData] = useState<ReceiptOcrDto | null>(null);
-  const [items, setItems] = useState<(OcrItemDto & { key: string })[]>([]);
-  const [editingKey, setEditingKey] = useState<string>('');
-  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
-  const [products, setProducts] = useState<ProductOption[]>([]);
-  const [zones, setZones] = useState<ZoneOption[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState<OcrItemRow[]>([]);
 
-  // Load danh sách suppliers, products, zones
+  // ─── Master Data State (kiểu id đều là string/Guid) ─────────────────────────
+  const [suppliers, setSuppliers] = useState<SupplierDto[]>([]);
+  const [products, setProducts] = useState<ProductDto[]>([]);
+  const [zones, setZones] = useState<ZoneDto[]>([]);
+
+  // ─── Load danh sách Master Data khi mount ────────────────────────────────────
   React.useEffect(() => {
+    const loadDataOptions = async () => {
+      try {
+        const [suppliersRes, productsRes, zonesRes] = await Promise.all([
+          supplierService.getSuppliers(),
+          productService.getProducts(),
+          zoneService.getZones(),
+        ]);
+        setSuppliers(suppliersRes.data || []);
+        setProducts(productsRes.data || []);
+        setZones(zonesRes.data || []);
+      } catch (error) {
+        console.error('Failed to load master data options:', error);
+        message.warning('Không thể tải danh mục. Vui lòng tải lại trang.');
+      }
+    };
     loadDataOptions();
   }, []);
 
-  const loadDataOptions = async () => {
-    try {
-      const [suppliersRes, productsRes, zonesRes] = await Promise.all([
-        supplierService.getSuppliers(),
-        productService.getProducts(),
-        zoneService.getZones(),
-      ]);
-      setSuppliers(suppliersRes.data || []);
-      setProducts(productsRes.data || []);
-      setZones(zonesRes.data || []);
-    } catch (error) {
-      console.error('Failed to load data options:', error);
-    }
-  };
-
-  // Xử lý upload ảnh
+  // ─── Upload ảnh ──────────────────────────────────────────────────────────────
   const handleBeforeUpload = (file: RcFile) => {
     const isImage = file.type.startsWith('image/');
     if (!isImage) {
       message.error('Chỉ được upload file ảnh!');
       return false;
     }
-
     const isLt5M = file.size / 1024 / 1024 < 5;
     if (!isLt5M) {
       message.error('Ảnh phải nhỏ hơn 5MB!');
       return false;
     }
-
     return false; // Prevent auto upload
   };
 
   const handleUploadChange = (file: RcFile) => {
     setImageFile(file);
-
-    // Generate preview
     const reader = new FileReader();
-    reader.onload = () => {
-      setImagePreview(reader.result as string);
-    };
+    reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
-  // Gửi ảnh lên Gemini API
+  // ─── Gửi ảnh lên Gemini API ──────────────────────────────────────────────────
   const handleExtractOcr = async () => {
     if (!imageFile) {
       message.error('Vui lòng chọn ảnh trước!');
       return;
     }
-
     setLoading(true);
     try {
       const result = await ocrService.extractInvoiceFromImage(imageFile);
@@ -131,10 +119,11 @@ const OcrValidation: React.FC = () => {
         invoiceDate: result.invoiceDate ? dayjs(result.invoiceDate) : undefined,
       });
 
-      // Khởi tạo items với key
-      const itemsWithKey = result.items.map((item, idx) => ({
+      // Khởi tạo items: actualQuantity mặc định = quantity AI đọc
+      const itemsWithKey: OcrItemRow[] = result.items.map((item, idx) => ({
         ...item,
         key: `item_${idx}`,
+        actualQuantity: item.quantity, // QA/QC có thể sửa lại
       }));
       setItems(itemsWithKey);
       message.success('Xử lý OCR thành công!');
@@ -145,7 +134,7 @@ const OcrValidation: React.FC = () => {
     }
   };
 
-  // Kiểm tra field có nghi ngờ không
+  // ─── Helper kiểm tra field nghi ngờ ─────────────────────────────────────────
   const isSuspiciousField = (fieldName: string): boolean => {
     if (!ocrData) return false;
     return ocrData.suspiciousFields.includes(fieldName);
@@ -156,50 +145,166 @@ const OcrValidation: React.FC = () => {
     return ocrData.suspiciousFields.includes(`items[${itemIndex}].${fieldName}`);
   };
 
-  // Table columns cho items
-  const columns: ColumnsType<OcrItemDto & { key: string }> = [
+  // ─── Cập nhật 1 field trong item tại row index ───────────────────────────────
+  const handleUpdateItemField = (
+    index: number,
+    field: keyof OcrItemRow,
+    value: string | number | undefined,
+  ) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+    );
+  };
+
+  // ─── Xóa item ────────────────────────────────────────────────────────────────
+  const handleDeleteItem = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // ─── Thêm dòng item trống ─────────────────────────────────────────────────────
+  const handleAddItem = () => {
+    const newItem: OcrItemRow = {
+      productName: '',
+      productId: '',
+      zoneId: '',
+      quantity: 0,
+      actualQuantity: 0,
+      unitPrice: 0,
+      key: `item_${Date.now()}`,
+    };
+    setItems((prev) => [...prev, newItem]);
+  };
+
+  // ─── Định nghĩa cột Table ────────────────────────────────────────────────────
+  const columns: ColumnsType<OcrItemRow> = [
     {
-      title: 'Tên Sản phẩm',
+      title: 'Tên SP (AI đọc)',
       dataIndex: 'productName',
       key: 'productName',
+      width: 130,
       render: (text, _, index) => (
-        <span style={isItemFieldSuspicious(index, 'productName') ? { borderBottom: '2px solid red' } : {}}>
+        <span
+          style={
+            isItemFieldSuspicious(index, 'productName')
+              ? { borderBottom: '2px solid red', display: 'block' }
+              : {}
+          }
+        >
+          {text || <em style={{ color: '#aaa' }}>Chưa có</em>}
+        </span>
+      ),
+    },
+    {
+      title: (
+        <span>
+          Sản phẩm <span style={{ color: 'red' }}>*</span>
+        </span>
+      ),
+      key: 'productId',
+      width: 180,
+      render: (_, record, index) => (
+        <Select
+          size="small"
+          style={{ width: '100%' }}
+          placeholder="Chọn sản phẩm"
+          value={record.productId || undefined}
+          showSearch
+          optionFilterProp="label"
+          options={products.map((p) => ({
+            label: `${p.name} (${p.sku})`,
+            value: p.id, // Guid string
+          }))}
+          onChange={(val: string) => handleUpdateItemField(index, 'productId', val)}
+        />
+      ),
+    },
+    {
+      title: (
+        <span>
+          Zone <span style={{ color: 'red' }}>*</span>
+        </span>
+      ),
+      key: 'zoneId',
+      width: 150,
+      render: (_, record, index) => (
+        <Select
+          size="small"
+          style={{ width: '100%' }}
+          placeholder="Chọn zone"
+          value={record.zoneId || undefined}
+          showSearch
+          optionFilterProp="label"
+          options={zones.map((z) => ({
+            label: z.name,
+            value: z.id, // Guid string
+          }))}
+          onChange={(val: string) => handleUpdateItemField(index, 'zoneId', val)}
+        />
+      ),
+    },
+    {
+      title: 'SL AI đọc',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 90,
+      render: (text, _, index) => (
+        <span
+          style={
+            isItemFieldSuspicious(index, 'quantity')
+              ? { borderBottom: '2px solid red', display: 'block', color: '#cf1322' }
+              : { color: '#8c8c8c' }
+          }
+        >
           {text}
         </span>
       ),
     },
     {
-      title: 'Số lượng',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      render: (text, _, index) => (
-        <span style={isItemFieldSuspicious(index, 'quantity') ? { borderBottom: '2px solid red' } : {}}>
-          {text}
+      title: (
+        <span>
+          SL Thực tế <span style={{ color: 'red' }}>*</span>
         </span>
+      ),
+      key: 'actualQuantity',
+      width: 110,
+      render: (_, record, index) => (
+        <InputNumber
+          size="small"
+          min={0}
+          style={{ width: '100%' }}
+          value={record.actualQuantity ?? record.quantity}
+          onChange={(val) => handleUpdateItemField(index, 'actualQuantity', val ?? 0)}
+        />
       ),
     },
     {
       title: 'Đơn giá',
-      dataIndex: 'unitPrice',
       key: 'unitPrice',
-      render: (text, _, index) => (
-        <span style={isItemFieldSuspicious(index, 'unitPrice') ? { borderBottom: '2px solid red' } : {}}>
-          {text}
-        </span>
+      width: 110,
+      render: (_, record, index) => (
+        <InputNumber
+          size="small"
+          min={0}
+          style={{ width: '100%' }}
+          value={record.unitPrice}
+          formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+          onChange={(val) => handleUpdateItemField(index, 'unitPrice', val ?? 0)}
+        />
       ),
     },
     {
       title: 'Độ tin cậy',
       key: 'confidence',
-      render: (_, record, index) => {
-        const avgConfidence =
+      width: 80,
+      render: (_, record) => {
+        const avg =
           ((record.productNameConfidence || 0) +
             (record.quantityConfidence || 0) +
             (record.unitPriceConfidence || 0)) /
           3;
         return (
-          <span style={{ color: avgConfidence < 0.7 ? 'red' : 'green' }}>
-            {(avgConfidence * 100).toFixed(0)}%
+          <span style={{ color: avg < 0.7 ? 'red' : 'green', fontWeight: 600 }}>
+            {(avg * 100).toFixed(0)}%
           </span>
         );
       },
@@ -207,71 +312,73 @@ const OcrValidation: React.FC = () => {
     {
       title: 'Hành động',
       key: 'action',
-      width: 100,
-      render: (_, record, index) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => setEditingKey(record.key)}
-            size="small"
-          />
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteItem(index)}
-            size="small"
-          />
-        </Space>
+      width: 60,
+      render: (_, __, index) => (
+        <Button
+          type="link"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleDeleteItem(index)}
+          size="small"
+        />
       ),
     },
   ];
 
-  const handleDeleteItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
+  // ─── Validate items trước khi submit ────────────────────────────────────────
+  const validateItems = (): boolean => {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.productId) {
+        message.error(`Dòng ${i + 1}: Vui lòng chọn sản phẩm!`);
+        return false;
+      }
+      if (!item.zoneId) {
+        message.error(`Dòng ${i + 1}: Vui lòng chọn zone lưu trữ!`);
+        return false;
+      }
+      const actual = item.actualQuantity ?? item.quantity;
+      if (actual <= 0) {
+        message.error(`Dòng ${i + 1}: Số lượng thực tế phải > 0!`);
+        return false;
+      }
+    }
+    return true;
   };
 
-  const handleAddItem = () => {
-    const newItem: OcrItemDto & { key: string } = {
-      productName: '',
-      quantity: 0,
-      unitPrice: 0,
-      key: `item_${Date.now()}`,
-    };
-    setItems([...items, newItem]);
-  };
-
+  // ─── Lưu phiếu nhập ──────────────────────────────────────────────────────────
   const handleSaveReceipt = async () => {
     try {
       const values = await form.validateFields();
 
-      // Validate items
       if (items.length === 0) {
         message.error('Phải có ít nhất 1 sản phẩm!');
         return;
       }
 
+      if (!validateItems()) return;
+
       setLoading(true);
 
-      // Prepare request data
+      // Mapping chuẩn sang DTO gửi Backend
+      // supplierId: string (Guid), productId: string (Guid), zoneId: string (Guid)
       const request = {
-        supplierId: values.supplierId,
-        invoiceDate: values.invoiceDate.format('YYYY-MM-DD'),
+        supplierId: values.supplierId as string,         // Guid từ Select
+        invoiceDate: (values.invoiceDate as dayjs.Dayjs).format('YYYY-MM-DD'),
         items: items.map((item) => ({
-          productId: item.productId || 0,
-          zoneId: item.zoneId || 0,
-          quantity: item.quantity,
+          productId: item.productId!,                    // Guid string
+          zoneId: item.zoneId!,                          // Guid string
+          expectedQuantity: item.quantity,               // Số AI đọc
+          actualQuantity: item.actualQuantity ?? item.quantity, // Số QA/QC chốt
           unitPrice: item.unitPrice,
         })),
-        notes: values.notes,
+        notes: values.notes as string | undefined,
       };
 
-      // Call save API
       await ocrService.saveReceiptFromOcr(request);
       message.success('Lưu phiếu nhập thành công!');
 
-      // Reset form
+      // Reset toàn bộ form
       form.resetFields();
       setImageFile(null);
       setImagePreview('');
@@ -284,13 +391,14 @@ const OcrValidation: React.FC = () => {
     }
   };
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '24px' }}>
       <Title level={2}>Duyệt Hóa Đơn OCR</Title>
 
       <Spin spinning={loading}>
         <Row gutter={24}>
-          {/* Left Panel: Upload & Image Viewer */}
+          {/* ── Left Panel: Upload & Image Viewer ───────────────────────────── */}
           <Col xs={24} lg={12}>
             <Card title="Upload Hóa Đơn" style={{ marginBottom: '24px' }}>
               <Upload.Dragger
@@ -349,7 +457,7 @@ const OcrValidation: React.FC = () => {
             )}
           </Col>
 
-          {/* Right Panel: Form & Data */}
+          {/* ── Right Panel: Form & Data ─────────────────────────────────────── */}
           <Col xs={24} lg={12}>
             {ocrData && (
               <>
@@ -365,7 +473,8 @@ const OcrValidation: React.FC = () => {
 
                 <Card title="Dữ liệu Hóa Đơn (Chờ Duyệt)">
                   <Form form={form} layout="vertical">
-                    {/* Supplier */}
+
+                    {/* ── Nhà Cung Cấp (Guid Dropdown) ──────────────────────── */}
                     <Form.Item
                       name="supplierId"
                       label="Nhà Cung Cấp"
@@ -376,13 +485,18 @@ const OcrValidation: React.FC = () => {
                           : {}
                       }
                     >
-                      <Select placeholder="Chọn nhà cung cấp" options={suppliers.map((s) => ({
-                        label: s.name,
-                        value: s.id,
-                      }))} />
+                      <Select
+                        placeholder="Chọn nhà cung cấp"
+                        showSearch
+                        optionFilterProp="label"
+                        options={suppliers.map((s) => ({
+                          label: s.name,
+                          value: s.id, // Guid string
+                        }))}
+                      />
                     </Form.Item>
 
-                    {/* Invoice Date */}
+                    {/* ── Ngày Hóa Đơn ───────────────────────────────────────── */}
                     <Form.Item
                       name="invoiceDate"
                       label="Ngày Hóa Đơn"
@@ -398,39 +512,47 @@ const OcrValidation: React.FC = () => {
 
                     <Divider>Danh Sách Sản Phẩm</Divider>
 
-                    {/* Items Table */}
+                    {/* ── Bảng Items: Product + Zone + ActualQty ─────────────── */}
                     <Table
                       columns={columns}
                       dataSource={items}
                       pagination={false}
                       size="small"
+                      scroll={{ x: 900 }}
                       style={{ marginBottom: '16px' }}
                     />
 
-                    <Button icon={<PlusOutlined />} onClick={handleAddItem} style={{ marginBottom: '16px' }}>
+                    <Button
+                      icon={<PlusOutlined />}
+                      onClick={handleAddItem}
+                      style={{ marginBottom: '16px' }}
+                    >
                       Thêm Sản Phẩm
                     </Button>
 
-                    {/* Notes */}
+                    {/* ── Ghi Chú ────────────────────────────────────────────── */}
                     <Form.Item name="notes" label="Ghi Chú">
                       <TextArea rows={3} placeholder="Ghi chú từ QA/QC (nếu có)" />
                     </Form.Item>
 
-                    {/* Action Buttons */}
+                    {/* ── Action Buttons ─────────────────────────────────────── */}
                     <Form.Item style={{ marginBottom: 0 }}>
                       <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-                        <Button onClick={() => {
-                          form.resetFields();
-                          setOcrData(null);
-                          setItems([]);
-                          setImageFile(null);
-                          setImagePreview('');
-                        }}>
+                        <Button
+                          onClick={() => {
+                            form.resetFields();
+                            setOcrData(null);
+                            setItems([]);
+                            setImageFile(null);
+                            setImagePreview('');
+                          }}
+                        >
                           Hủy
                         </Button>
                         <Button
                           type="primary"
                           size="large"
+                          icon={<SaveOutlined />}
                           onClick={handleSaveReceipt}
                           loading={loading}
                         >

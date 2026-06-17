@@ -262,7 +262,7 @@ public class ReceiptService : IReceiptService
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Thêm chi tiết từ OCR
+            // Thêm chi tiết từ OCR - mapping chuẩn Expected vs Actual
             foreach (var item in request.Items)
             {
                 receipt.ReceiptDetails.Add(new ReceiptDetail
@@ -271,8 +271,8 @@ public class ReceiptService : IReceiptService
                     ReceiptId = receipt.Id,
                     ProductId = item.ProductId,
                     ZoneId = item.ZoneId,
-                    ExpectedQuantity = item.Quantity,
-                    ActualQuantity = item.Quantity,
+                    ExpectedQuantity = item.ExpectedQuantity, // Số AI đọc được
+                    ActualQuantity = item.ActualQuantity,     // Số QA/QC chốt thực tế
                     UnitPrice = item.UnitPrice
                 });
             }
@@ -296,23 +296,23 @@ public class ReceiptService : IReceiptService
                         WarehouseId = warehouseId,
                         ZoneId = item.ZoneId,
                         ProductId = item.ProductId,
-                        Quantity = item.Quantity,
+                        Quantity = item.ActualQuantity, // Dùng ActualQuantity (QA/QC chốt)
                         LastRestockedDate = DateTime.UtcNow
                     });
                 }
                 else
                 {
-                    inventory.Quantity += item.Quantity;
+                    inventory.Quantity += item.ActualQuantity; // Cộng theo số thực tế
                     inventory.LastRestockedDate = DateTime.UtcNow;
                 }
 
-                // Ghi log giao dịch
+                // Ghi log giao dịch (dùng ActualQuantity - số QA/QC đã chốt)
                 _db.InventoryTransactions.Add(new InventoryTransaction
                 {
                     Id = Guid.NewGuid(),
                     ProductId = item.ProductId,
                     ZoneId = item.ZoneId,
-                    QuantityChange = item.Quantity,
+                    QuantityChange = item.ActualQuantity, // Cập nhật tồn kho theo số thực tế
                     TransactionType = TransactionType.Inbound,
                     ReferenceId = receipt.Id,
                     CreatedAt = DateTime.UtcNow

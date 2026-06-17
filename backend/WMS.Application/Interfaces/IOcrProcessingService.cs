@@ -5,6 +5,6 @@ namespace WMS.Application.Interfaces
 {
     public interface IOcrProcessingService
     {
-        Task<ReceiptOcrDto> ProcessInvoiceImageAsync(string base64Image);
+        Task<ReceiptOcrDto> ProcessInvoiceImageAsync(string base64Image, string mimeType);
     }
 }
