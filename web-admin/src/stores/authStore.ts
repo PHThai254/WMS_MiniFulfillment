@@ -40,11 +40,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         })) as ApiResponse<LoginResponse>;
 
         if (response?.success && response?.data) {
-            const { accessToken, refreshToken, user } = response.data;
+            const { accessToken, refreshToken } = response.data;
+
+            // FIX BUG 1 (Step 2): Lưu token vào localStorage trước
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('refreshToken', refreshToken);
-            set({ user: user ?? null, isAuthenticated: true });
-            return;
+
+            // FIX BUG 1 (Step 3): Fetch full user profile + permissions trước khi update State
+            // Đảm bảo Global State đầy đủ (có permissions[]) trước khi navigate('/dashboard')
+            try {
+                const meResponse = (await apiClient.get(API_ENDPOINTS.auth.me)) as ApiResponse<IUser>;
+                if (meResponse?.success && meResponse?.data) {
+                    // FIX BUG 1 (Step 4): Set State với full user profile
+                    set({ user: meResponse.data, isAuthenticated: true });
+                    return;
+                }
+            } catch {
+                // Nếu /me thất bại, fallback với user từ login response (nếu có)
+                const fallbackUser = response.data.user;
+                set({
+                    user: fallbackUser
+                        ? { ...fallbackUser, permissions: fallbackUser.permissions ?? [] }
+                        : null,
+                    isAuthenticated: !!fallbackUser,
+                });
+                if (fallbackUser) return;
+            }
         }
 
         throw new Error(response?.message || 'Login failed');
@@ -90,5 +111,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const user = get().user;
         if (user?.role === 'Admin') return true;
         return user?.warehouseId === warehouseId;
+    },
+    // FIX BUG 3: Kiểm tra quyền động dựa trên mã quyền (permission code), không hardcode Role
+    hasPermission: (permission: string) => {
+        const perms = get().user?.permissions ?? [];
+        return perms.includes(permission);
     },
 }));

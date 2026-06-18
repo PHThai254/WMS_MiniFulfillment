@@ -18,7 +18,7 @@ import {
   Alert,
   Typography,
 } from 'antd';
-import { InboxOutlined, PlusOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { InboxOutlined, PlusOutlined, DeleteOutlined, SaveOutlined, CloseCircleFilled } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload/interface';
 import type { ColumnsType } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
@@ -102,6 +102,16 @@ const OcrValidation: React.FC = () => {
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  // ─── Xóa ảnh đã chọn, đưa về trạng thái ban đầu ──────────────────────────
+  const handleClearImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setOcrData(null);
+    setItems([]);
+    form.resetFields();
+    message.info('Đã xóa ảnh. Vui lòng chọn ảnh mới.');
   };
 
   // ─── Gửi ảnh lên Gemini API ──────────────────────────────────────────────────
@@ -431,7 +441,21 @@ const OcrValidation: React.FC = () => {
             </Card>
 
             {imagePreview && (
-              <Card title="Xem ảnh hóa đơn">
+              <Card
+                title="Xem ảnh hóa đơn"
+                extra={
+                  <Button
+                    id="btn-clear-image"
+                    type="text"
+                    danger
+                    icon={<CloseCircleFilled />}
+                    onClick={handleClearImage}
+                    title="Xóa ảnh / Chọn ảnh khác"
+                  >
+                    Xóa ảnh
+                  </Button>
+                }
+              >
                 <div
                   style={{
                     maxHeight: '600px',
@@ -441,6 +465,7 @@ const OcrValidation: React.FC = () => {
                     alignItems: 'center',
                     backgroundColor: '#f5f5f5',
                     borderRadius: '4px',
+                    position: 'relative',
                   }}
                 >
                   <img

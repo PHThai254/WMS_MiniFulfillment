@@ -3,13 +3,14 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
     Modal, Form, Select, InputNumber, Button, Space,
     Tag, Descriptions, Divider, Upload, Image, Row, Col,
-    message, Spin, Input, Alert
+    message, Spin, Input, Alert, Table, Badge
 } from 'antd';
 import {
     PlusOutlined, EyeOutlined, CheckCircleOutlined,
-    UploadOutlined, RobotOutlined, InboxOutlined
+    UploadOutlined, RobotOutlined, InboxOutlined, WarningOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
+import type { IOcrResult, IOcrLineItem } from '../../types/domain';
 import { PageHeader } from '../../components/common/PageHeader';
 import { BaseTable } from '../../components/common/BaseTable';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
@@ -18,6 +19,8 @@ import { warehouseService } from '../../services/warehouseService';
 import { supplierService } from '../../services/supplierService';
 import { productService } from '../../services/productService';
 import { zoneService } from '../../services/zoneService';
+// FIX BUG 3: Import useAuth để kiểm tra quyền động
+import { useAuth } from '../../hooks/useAuth';
 import type { IReceipt, IWarehouse, ISupplier, IProduct, IZone, ReceiptStatus } from '../../types/domain';
 
 const { Option } = Select;
@@ -30,6 +33,8 @@ const STATUS_MAP: Record<ReceiptStatus, { color: string; label: string }> = {
 };
 
 export const ReceiptsPage: React.FC = () => {
+    // FIX BUG 3: Lấy hasPermission để kiểm tra quyền hiển thị UI
+    const { hasPermission } = useAuth();
     const [receipts, setReceipts] = useState<IReceipt[]>([]);
     const [loading, setLoading] = useState(false);
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -44,9 +49,14 @@ export const ReceiptsPage: React.FC = () => {
     const [approving, setApproving] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [ocrRunning, setOcrRunning] = useState(false);
-    const [ocrResult, setOcrResult] = useState<string | null>(null);
+    // ocrData: null = Phase 1 (Upload), có giá trị = Phase 2 (Validation)
+    const [ocrData, setOcrData] = useState<IOcrResult | null>(null);
     const [ocrFile, setOcrFile] = useState<UploadFile | null>(null);
     const [ocrImageUrl, setOcrImageUrl] = useState<string | null>(null);
+    // Phase 2: mảng rows để user map OCR item → Product / Zone / NCC
+    const [ocrMappedRows, setOcrMappedRows] = useState<
+        { productId: string; zoneId: string; supplierId: string; quantity: number; isLowConfidence: boolean; productNameOcr: string }[]
+    >();
     const [form] = Form.useForm();
     const [approveForm] = Form.useForm();
     
@@ -149,13 +159,39 @@ export const ReceiptsPage: React.FC = () => {
             formData.append('image', ocrFile.originFileObj as File);
             const res = await receiptService.runOcr(formData);
             if (res?.success && res.data) {
-                setOcrResult(JSON.stringify(res.data, null, 2));
+                // Lưu IOcrResult, không stringify — Phase 2 dùng .items[]
+                setOcrData(res.data);
+                // Khởi tạo mapped rows từ items OCR trả về
+                setOcrMappedRows(
+                    res.data.items.map((item: IOcrLineItem) => ({
+                        productId: '',
+                        zoneId: '',
+                        supplierId: '',
+                        quantity: item.quantity,
+                        isLowConfidence: item.isLowConfidence,
+                        productNameOcr: item.productName,
+                    }))
+                );
             }
         } catch {
-            message.error('OCR thất bại.');
+            message.error('OCR thất bại. Vui lòng thử lại.');
         } finally {
             setOcrRunning(false);
         }
+    };
+
+    /** Xử lý submit Phase 2: Tạo phiếu nhập từ kết quả OCR đã được user map */
+    const handleOcrSubmit = async () => {
+        if (!ocrMappedRows || ocrMappedRows.length === 0) {
+            message.warning('Chưa có dữ liệu để tạo phiếu nhập.');
+            return;
+        }
+        const invalidRow = ocrMappedRows.find(r => !r.productId || !r.zoneId);
+        if (invalidRow) {
+            message.error(`Vui lòng chọn Sản phẩm và Zone cho dòng "${invalidRow.productNameOcr}".`);
+            return;
+        }
+        message.info('Chức năng tạo phiếu từ OCR đang phát triển (Human-in-the-loop confirmed).');
     };
 
     const columns = [
@@ -189,7 +225,10 @@ export const ReceiptsPage: React.FC = () => {
                     <Input.Search placeholder="Tìm kiếm..." style={{ width: 250 }} allowClear />
                 </Space>
                 <Space>
-                    <Button icon={<RobotOutlined />} onClick={() => setOcrModalOpen(true)}>AI OCR Hóa đơn</Button>
+                    {/* FIX BUG 3: Chỉ hiển nút OCR nếu user có quyền 'run_ocr' - kiểm tra bằng permission code, không dùng hardcode Role */}
+                    {hasPermission('run_ocr') && (
+                        <Button icon={<RobotOutlined />} onClick={() => setOcrModalOpen(true)}>AI OCR Hóa đơn</Button>
+                    )}
                     <PrimaryButton icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>Tạo Phiếu Nhập</PrimaryButton>
                 </Space>
             </Space>
@@ -348,11 +387,258 @@ export const ReceiptsPage: React.FC = () => {
                 )}
             </Modal>
 
-            {/* Modal AI OCR - Giữ nguyên không đổi */}
-            <Modal title={<><RobotOutlined /> AI OCR - Bóc tách Hóa đơn</>}
-                open={ocrModalOpen} onCancel={() => { setOcrModalOpen(false); setOcrResult(null); setOcrImageUrl(null); }}
-                footer={null} width={900}>
-                {/* ... (Phần nội dung Modal OCR giữ nguyên như code cũ của bạn) ... */}
+            {/* ===================== Modal AI OCR ===================== */}
+            <Modal
+                title={<Space><RobotOutlined style={{ color: '#722ed1' }} /><span>AI OCR – Bóc tách Hóa đơn</span></Space>}
+                open={ocrModalOpen}
+                onCancel={() => {
+                    setOcrModalOpen(false);
+                    setOcrData(null);
+                    setOcrMappedRows(undefined);
+                    setOcrFile(null);
+                    setOcrImageUrl(null);
+                }}
+                footer={null}
+                width={960}
+                destroyOnClose
+            >
+                {/* ─────────── PHASE 1: Upload ─────────── */}
+                {!ocrData && (
+                    <div style={{ padding: '16px 0' }}>
+                        <Alert
+                            message="Tải lên ảnh hóa đơn để AI tự động nhận dạng sản phẩm và số lượng."
+                            description="Định dạng hỗ trợ: JPG, PNG, WEBP. Độ phân giải tốt nhất ≥ 1 MP."
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 24 }}
+                        />
+
+                        {/* Khu vực Dragger upload */}
+                        <Upload.Dragger
+                            name="file"
+                            accept="image/*"
+                            maxCount={1}
+                            showUploadList={false}
+                            beforeUpload={(file) => {
+                                // Lưu file vào state, không upload ngay (manual submit)
+                                const uploadFile: UploadFile = {
+                                    uid: '-1',
+                                    name: file.name,
+                                    status: 'done',
+                                    originFileObj: file,
+                                };
+                                setOcrFile(uploadFile);
+                                // Tạo preview URL
+                                const url = URL.createObjectURL(file);
+                                setOcrImageUrl(url);
+                                return false; // chặn auto upload
+                            }}
+                            style={{ marginBottom: 16 }}
+                        >
+                            {ocrImageUrl ? (
+                                // Preview ảnh sau khi chọn
+                                <div style={{ padding: 8 }}>
+                                    <Image
+                                        src={ocrImageUrl}
+                                        alt="preview"
+                                        style={{ maxHeight: 280, objectFit: 'contain' }}
+                                        preview={false}
+                                    />
+                                    <p style={{ marginTop: 8, color: '#555' }}>
+                                        {ocrFile?.name} — <span style={{ color: '#722ed1' }}>Click/kéo thả để đổi ảnh</span>
+                                    </p>
+                                </div>
+                            ) : (
+                                <div style={{ padding: '32px 0' }}>
+                                    <p className="ant-upload-drag-icon">
+                                        <InboxOutlined style={{ fontSize: 48, color: '#722ed1' }} />
+                                    </p>
+                                    <p className="ant-upload-text">Click hoặc kéo thả ảnh hóa đơn vào đây</p>
+                                    <p className="ant-upload-hint">Hỗ trợ JPG, PNG, WEBP – tối đa 10 MB</p>
+                                </div>
+                            )}
+                        </Upload.Dragger>
+
+                        <div style={{ textAlign: 'right' }}>
+                            <Button
+                                type="primary"
+                                icon={<RobotOutlined />}
+                                size="large"
+                                loading={ocrRunning}
+                                disabled={!ocrFile}
+                                onClick={handleOcr}
+                                style={{ background: '#722ed1', borderColor: '#722ed1' }}
+                            >
+                                {ocrRunning ? 'Đang bóc tách...' : 'Bắt đầu bóc tách'}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─────────── PHASE 2: Validation – Split View ─────────── */}
+                {ocrData && ocrMappedRows && (
+                    <Row gutter={16} style={{ minHeight: 400 }}>
+                        {/* Bên TRÁI: Ảnh hóa đơn với scroll & zoom-hint */}
+                        <Col span={10} style={{ borderRight: '1px solid #f0f0f0', paddingRight: 16 }}>
+                            <div style={{ position: 'sticky', top: 0 }}>
+                                <p style={{ fontWeight: 600, marginBottom: 8 }}>📄 Ảnh hóa đơn gốc</p>
+                                {ocrImageUrl ? (
+                                    <Image
+                                        src={ocrImageUrl}
+                                        alt="invoice"
+                                        style={{ width: '100%', borderRadius: 8, border: '1px solid #d9d9d9' }}
+                                    />
+                                ) : (
+                                    <Alert message="Không có ảnh preview." type="warning" showIcon />
+                                )}
+                                {ocrData.hasLowConfidence && (
+                                    <Alert
+                                        icon={<WarningOutlined />}
+                                        message="Một số dòng có độ tin cậy thấp (viền đỏ). Vui lòng kiểm tra kỹ."
+                                        type="warning"
+                                        showIcon
+                                        style={{ marginTop: 12 }}
+                                    />
+                                )}
+                            </div>
+                        </Col>
+
+                        {/* Bên PHẢI: Bảng mapping OCR items → Master Data */}
+                        <Col span={14}>
+                            <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <span style={{ fontWeight: 600 }}>🗂 Map dữ liệu OCR ({ocrMappedRows.length} dòng)</span>
+                                <Button size="small" onClick={() => { setOcrData(null); setOcrMappedRows(undefined); }}>
+                                    ← Bóc tách lại
+                                </Button>
+                            </Space>
+
+                            {ocrMappedRows.map((row, idx) => (
+                                <div
+                                    key={idx}
+                                    style={{
+                                        marginBottom: 16,
+                                        padding: 12,
+                                        borderRadius: 8,
+                                        // Viền đỏ cảnh báo cho dòng low-confidence
+                                        border: row.isLowConfidence
+                                            ? '2px solid #ff4d4f'
+                                            : '1px solid #f0f0f0',
+                                        background: row.isLowConfidence ? '#fff2f0' : '#fafafa',
+                                    }}
+                                >
+                                    <Space style={{ marginBottom: 6 }}>
+                                        {row.isLowConfidence && <Badge status="error" text="Độ tin cậy thấp" />}
+                                        <span style={{ fontWeight: 500, color: '#555' }}>
+                                            OCR đọc được: <em>"{row.productNameOcr}"</em>
+                                        </span>
+                                    </Space>
+
+                                    <Row gutter={8}>
+                                        {/* Dropdown chọn Sản phẩm */}
+                                        <Col span={11}>
+                                            <div style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>Sản phẩm *</div>
+                                            <Select
+                                                showSearch
+                                                placeholder="Chọn sản phẩm"
+                                                style={{ width: '100%' }}
+                                                value={row.productId || undefined}
+                                                optionFilterProp="label"
+                                                onChange={(val: string) => {
+                                                    const next = [...ocrMappedRows];
+                                                    next[idx].productId = val;
+                                                    setOcrMappedRows(next);
+                                                }}
+                                            >
+                                                {products.map(p => (
+                                                    <Option key={p.id} value={p.id} label={`${p.name} (${p.sku})`}>
+                                                        {p.name} <span style={{ color: '#aaa' }}>({p.sku})</span>
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Col>
+
+                                        {/* Dropdown chọn Zone */}
+                                        <Col span={8}>
+                                            <div style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>Zone *</div>
+                                            <Select
+                                                placeholder="Chọn zone"
+                                                style={{ width: '100%' }}
+                                                value={row.zoneId || undefined}
+                                                onChange={(val: string) => {
+                                                    const next = [...ocrMappedRows];
+                                                    next[idx].zoneId = val;
+                                                    setOcrMappedRows(next);
+                                                }}
+                                            >
+                                                {zones.map(z => (
+                                                    <Option key={z.id} value={z.id}>
+                                                        {z.name}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        </Col>
+
+                                        {/* Số lượng (pre-filled từ OCR) */}
+                                        <Col span={5}>
+                                            <div style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>Số lượng</div>
+                                            <InputNumber
+                                                min={1}
+                                                value={row.quantity}
+                                                style={{ width: '100%' }}
+                                                onChange={(val) => {
+                                                    const next = [...ocrMappedRows];
+                                                    next[idx].quantity = val ?? 1;
+                                                    setOcrMappedRows(next);
+                                                }}
+                                            />
+                                        </Col>
+                                    </Row>
+
+                                    {/* Dropdown chọn Nhà cung cấp (optional) */}
+                                    <Row style={{ marginTop: 8 }}>
+                                        <Col span={24}>
+                                            <div style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>Nhà cung cấp (tuỳ chọn)</div>
+                                            <Select
+                                                showSearch
+                                                allowClear
+                                                placeholder="Chọn nhà cung cấp"
+                                                style={{ width: '100%' }}
+                                                value={row.supplierId || undefined}
+                                                optionFilterProp="children"
+                                                onChange={(val: string) => {
+                                                    const next = [...ocrMappedRows];
+                                                    next[idx].supplierId = val ?? '';
+                                                    setOcrMappedRows(next);
+                                                }}
+                                            >
+                                                {suppliers.map(s => (
+                                                    <Option key={s.id} value={s.id}>{s.name}</Option>
+                                                ))}
+                                            </Select>
+                                        </Col>
+                                    </Row>
+                                </div>
+                            ))}
+
+                            <Divider style={{ margin: '12px 0' }} />
+                            <div style={{ textAlign: 'right' }}>
+                                <Space>
+                                    <Button onClick={() => { setOcrData(null); setOcrMappedRows(undefined); }}>
+                                        Hủy
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        icon={<CheckCircleOutlined />}
+                                        onClick={handleOcrSubmit}
+                                        style={{ background: '#722ed1', borderColor: '#722ed1' }}
+                                    >
+                                        Xác nhận &amp; Tạo phiếu nhập
+                                    </Button>
+                                </Space>
+                            </div>
+                        </Col>
+                    </Row>
+                )}
             </Modal>
         </div>
     );

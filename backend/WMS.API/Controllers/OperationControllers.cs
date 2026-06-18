@@ -321,18 +321,21 @@ public class AnalyticsController : ControllerBase
     private readonly IAnalyticsService _service;
     public AnalyticsController(IAnalyticsService service) => _service = service;
 
+    // FIX BUG 2: Đổi từ [Authorize(Policy = "view_analytics")] sang [Authorize(Policy = "view_dashboard_kpi")]
+    // Policy "view_dashboard_kpi" được đăng ký trong Program.cs và gán cho cả Admin lẫn QA_QC trong DB
+    // Tuyệt đối không dùng [Authorize(Roles = "Admin")] để tránh hardcode vai trò
     [HttpGet("kpis")]
-    [Authorize(Policy = "view_analytics")]
+    [Authorize(Policy = "view_dashboard_kpi")]
     public async Task<ActionResult<ApiResponse<WMS.Application.DTOs.Analytics.DashboardKpiDto>>> GetKpis()
         => Ok(ApiResponse<WMS.Application.DTOs.Analytics.DashboardKpiDto>.Succeeded(await _service.GetKpiAsync()));
 
     [HttpGet("low-stock")]
-    [Authorize(Policy = "view_analytics")]
+    [Authorize(Policy = "view_dashboard_kpi")]
     public async Task<ActionResult<ApiResponse<List<WMS.Application.DTOs.Analytics.LowStockProductDto>>>> GetLowStock([FromQuery] int top = 5)
         => Ok(ApiResponse<List<WMS.Application.DTOs.Analytics.LowStockProductDto>>.Succeeded(await _service.GetLowStockProductsAsync(top)));
 
     [HttpGet("stock-movements")]
-    [Authorize(Policy = "view_analytics")]
+    [Authorize(Policy = "view_dashboard_kpi")]
     public async Task<ActionResult<ApiResponse<List<WMS.Application.DTOs.Analytics.StockMovementDto>>>> GetStockMovements([FromQuery] int days = 7)
         => Ok(ApiResponse<List<WMS.Application.DTOs.Analytics.StockMovementDto>>.Succeeded(await _service.GetStockMovementsAsync(days)));
 }

@@ -146,14 +146,52 @@ public class UserManagementService : IUserManagementService
     public UserManagementService(ApplicationDbContext db) => _db = db;
 
     public async Task<List<UserDto>> GetAllAsync() =>
-        await _db.Users.Include(u => u.Role).Include(u => u.Warehouse).AsNoTracking()
-            .Select(u => new UserDto(u.Id, u.Username, u.Role!.Name, u.RoleId, u.WarehouseId, u.Warehouse != null ? u.Warehouse.Name : null))
+        await _db.Users
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .Include(u => u.Warehouse)
+            .AsNoTracking()
+            .Select(u => new UserDto
+            {
+                Id          = u.Id,
+                Username    = u.Username,
+                RoleName    = u.Role!.Name,
+                RoleId      = u.RoleId,
+                WarehouseId = u.WarehouseId,
+                WarehouseName = u.Warehouse != null ? u.Warehouse.Name : null,
+                Permissions = u.Role.RolePermissions
+                                   .Select(rp => rp.Permission!.Name)
+                                   .ToList()
+            })
             .ToListAsync();
 
     public async Task<UserDto?> GetByIdAsync(Guid id)
     {
-        var u = await _db.Users.Include(u => u.Role).Include(u => u.Warehouse).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return u is null ? null : new UserDto(u.Id, u.Username, u.Role?.Name ?? string.Empty, u.RoleId, u.WarehouseId, u.Warehouse?.Name);
+        var u = await _db.Users
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .Include(u => u.Warehouse)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (u is null) return null;
+
+        return new UserDto
+        {
+            Id            = u.Id,
+            Username      = u.Username,
+            RoleName      = u.Role?.Name ?? string.Empty,
+            RoleId        = u.RoleId,
+            WarehouseId   = u.WarehouseId,
+            WarehouseName = u.Warehouse?.Name,
+            Permissions   = u.Role?.RolePermissions
+                               .Select(rp => rp.Permission?.Name ?? string.Empty)
+                               .Where(name => name.Length > 0)
+                               .ToList()
+                            ?? new List<string>()
+        };
     }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request)

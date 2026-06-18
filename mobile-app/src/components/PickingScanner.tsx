@@ -164,12 +164,6 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
           </View>
         )}
 
-        {/* Expected barcode */}
-        <View style={styles.instructionBox}>
-          <Text style={styles.instructionLabel}>Mã cần quét:</Text>
-          <Text style={styles.barcodeDisplay}>{task.expectedBarcode}</Text>
-        </View>
-
         {/* Action buttons */}
         <View style={styles.buttonGroup}>
           {pickedQuantity < task.quantity && (

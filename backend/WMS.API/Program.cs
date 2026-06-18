@@ -106,6 +106,9 @@ var allPermissions = new[]
     "manage_users",
     // Analytics
     "view_analytics",
+    // FIX BUG 2: Alias policy cho Dashboard KPI - QA_QC được gán quyền này trong DB
+    // Thay thế hardcode [Authorize(Roles="Admin")] bằng policy-based RBAC động
+    "view_dashboard_kpi",
 };
 
 builder.Services.AddAuthorization(options =>

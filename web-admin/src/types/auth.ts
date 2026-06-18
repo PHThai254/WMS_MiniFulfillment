@@ -26,6 +26,8 @@ export interface IUser {
     role: 'Admin' | 'QA_QC' | 'Staff';
     warehouseId?: string | null;
     warehouseName?: string;
+    // FIX BUG 3: Mảng quyền động từ DB thay vì hardcode Role
+    permissions: string[];
 }
 
 export interface AuthContextType {
@@ -37,4 +39,6 @@ export interface AuthContextType {
     refreshToken: () => Promise<boolean>;
     hasRole: (role: string) => boolean;
     canAccessWarehouse: (warehouseId: string) => boolean;
+    // FIX BUG 3: Helper kiểm tra quyền động
+    hasPermission: (permission: string) => boolean;
 }

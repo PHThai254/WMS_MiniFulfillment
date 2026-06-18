@@ -73,10 +73,6 @@ export const LoginPage: React.FC = () => {
                 </Form.Item>
             </Form>
 
-            <Space direction="vertical" size="small">
-                <Typography.Text type="secondary">Tài khoản mẫu:</Typography.Text>
-                <Typography.Text type="secondary">Tên đăng nhập: admin | Mật khẩu: admin123</Typography.Text>
-            </Space>
         </AuthLayout>
     );
 };

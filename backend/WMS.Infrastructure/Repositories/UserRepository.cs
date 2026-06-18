@@ -18,14 +18,17 @@ public class UserRepository : IUserRepository
     }
 
     /// <summary>
-    /// Tìm user theo username, bao gồm thông tin Role.
+    /// Tìm user theo username, bao gồm Role → RolePermissions → Permission.
+    /// Dùng một query duy nhất (eager loading), không N+1.
     /// </summary>
     /// <param name="username">Tên đăng nhập</param>
-    /// <returns>User object với Role đã được load, hoặc null nếu không tìm thấy</returns>
+    /// <returns>User object với Role và Permissions đã được load, hoặc null nếu không tìm thấy</returns>
     public async Task<User?> GetByUsernameAsync(string username)
     {
         return await _dbContext.Users
-            .Include(u => u.Role)
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.Username == username);
     }
 
@@ -40,14 +43,18 @@ public class UserRepository : IUserRepository
     }
 
     /// <summary>
-    /// Tìm user theo Refresh Token, bao gồm thông tin Role.
+    /// Tìm user theo Refresh Token, bao gồm Role → RolePermissions → Permission.
+    /// Dùng một query duy nhất (eager loading), không N+1.
     /// </summary>
     /// <param name="refreshToken">Refresh Token</param>
-    /// <returns>User object với Role đã được load, hoặc null nếu không tìm thấy</returns>
+    /// <returns>User object với Role và Permissions đã được load, hoặc null nếu không tìm thấy</returns>
     public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
     {
         return await _dbContext.Users
-            .Include(u => u.Role)
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
     }
 }
+

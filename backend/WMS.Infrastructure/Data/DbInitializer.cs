@@ -7,7 +7,7 @@ namespace WMS.Infrastructure.Data;
 
 /// <summary>
 /// DbInitializer: Seed dữ liệu khởi tạo hệ thống.
-/// Chỉ sử dụng 3 Roles: Admin, QA_QC, Staff.  (Manager đã bị loại bỏ hoàn toàn)
+/// Chỉ sử dụng 3 Roles: Admin, QA_QC, Staff.
 /// </summary>
 public static class DbInitializer
 {
@@ -97,6 +97,11 @@ public static class DbInitializer
 
             // ── Analytics ────────────────────────────────────────────────────
             ("view_analytics",          "Analytics"),
+            // FIX BUG 2: Thêm permission mã quyền cho Dashboard KPI
+            // QA_QC cần quyền này để gọi API Analytics không bị 403
+            ("view_dashboard_kpi",      "Analytics"),
+            // approve_qc: Được dùng trong ReceiptsController.SaveFromOcr - cần seed
+            ("approve_qc",              "Receipt"),
         };
 
         var existingPerms = await context.Permissions.ToListAsync();
@@ -148,17 +153,20 @@ public static class DbInitializer
         // Admin: TẤT CẢ quyền
         Grant(admin, perms.Keys.ToArray());
 
-        // QA_QC: Chỉ quyền OCR, duyệt phiếu, xem tồn kho
+        // QA_QC: Quyền OCR, duyệt phiếu, xem tồn kho và xem Dashboard KPI
         Grant(qaQc,
             "view_receipt",
             "approve_qc_receipt",
             "approve_ocr_receipt",
+            "approve_qc",           // Duyệt và lưu kết quả OCR
             "save_from_ocr",
             "run_ocr",
             "view_inventory",
             "view_stock_summary",
             "view_transactions",
-            "view_issue"
+            "view_issue",
+            // FIX BUG 2: Gán quyền xem Dashboard KPI cho QA_QC
+            "view_dashboard_kpi"
         );
 
         // Staff: Chỉ quyền quét cất hàng và nhặt hàng
