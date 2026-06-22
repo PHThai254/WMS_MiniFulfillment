@@ -7,6 +7,7 @@ import { ScannerHeader } from './ScannerHeader';
 import { ScannerButton } from './ScannerButton';
 import { useBarcodeScan } from '../di/hooks/useBarcodeScan';
 import { inventoryService } from '../infrastructure/inventoryService';
+import { queuePendingScanAction } from '../infrastructure/offlineQueue';
 
 type PutAwayStep = 'product' | 'zone' | 'quantity';
 
@@ -102,8 +103,28 @@ export const PutAwayScanner: React.FC<PutAwayScannerProps> = ({ receiptId, onSub
         setState({ step: 'product', productBarcode: null, zoneBarcode: null, quantity: 1 });
       }
     } catch (error: any) {
+      const isOffline = !error?.response || error?.message === 'Network Error' || error?.code === 'ERR_NETWORK';
       const msg = error?.response?.data?.message || error?.message || 'Không thể kết nối máy chủ.';
-      Alert.alert('❌ Lỗi kết nối', msg);
+
+      if (isOffline && receiptId) {
+        await queuePendingScanAction({
+          id: `putaway-${receiptId}-${Date.now()}`,
+          type: 'PUT_AWAY',
+          payload: {
+            receiptId,
+            productBarcode: state.productBarcode,
+            zoneBarcode: state.zoneBarcode,
+            quantity: state.quantity,
+          },
+          createdAt: new Date().toISOString(),
+        });
+        Alert.alert(
+          '⚠️ Mất mạng',
+          'Thao tác cất hàng đã được lưu tạm. Hệ thống sẽ gửi lại khi có kết nối.'
+        );
+      } else {
+        Alert.alert('❌ Lỗi kết nối', msg);
+      }
     } finally {
       setIsSubmitting(false);
     }

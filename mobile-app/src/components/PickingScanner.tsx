@@ -7,6 +7,7 @@ import { ScannerHeader } from './ScannerHeader';
 import { ScannerButton } from './ScannerButton';
 import { useBarcodeScan } from '../di/hooks/useBarcodeScan';
 import { inventoryService } from '../infrastructure/inventoryService';
+import { queuePendingScanAction } from '../infrastructure/offlineQueue';
 
 interface PickingTask {
   issueId: string;       // ID của Issue (Lệnh xuất kho)
@@ -111,8 +112,27 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
           Alert.alert('❌ Lỗi', res?.message || 'Báo cáo picking thất bại.');
         }
       } catch (error: any) {
+        const isOffline = !error?.response || error?.message === 'Network Error' || error?.code === 'ERR_NETWORK';
         const msg = error?.response?.data?.message || error?.message || 'Không thể kết nối máy chủ.';
-        Alert.alert('❌ Lỗi kết nối', msg);
+
+        if (isOffline && task.issueId) {
+          await queuePendingScanAction({
+            id: `picking-${task.issueId}-${task.issueDetailId}-${Date.now()}`,
+            type: 'PICKING',
+            payload: {
+              issueId: task.issueId,
+              issueDetailId: task.issueDetailId,
+              pickedQuantity: task.quantity,
+            },
+            createdAt: new Date().toISOString(),
+          });
+          Alert.alert(
+            '⚠️ Mất mạng',
+            'Thao tác nhặt hàng đã được lưu tạm và sẽ được tự động gửi lại khi mạng ổn định.'
+          );
+        } else {
+          Alert.alert('❌ Lỗi kết nối', msg);
+        }
       } finally {
         setIsApiCalling(false);
       }
