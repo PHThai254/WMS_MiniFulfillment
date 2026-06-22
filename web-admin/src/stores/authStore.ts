@@ -43,7 +43,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const { accessToken, refreshToken, user } = response.data;
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('refreshToken', refreshToken);
-            set({ user: user ?? null, isAuthenticated: true });
+            
+            if (user) {
+                set({ user, isAuthenticated: true });
+            } else {
+                // Fetch user info from /me endpoint immediately after login
+                await get().initialize();
+            }
             return;
         }
 
