@@ -19,9 +19,9 @@ namespace WMS.Application.Services
             _aiOcrService = aiOcrService;
         }
 
-        public async Task<ReceiptOcrDto> ProcessInvoiceImageAsync(string base64Image)
+        public async Task<ReceiptOcrDto> ProcessInvoiceImageAsync(string base64Image, string mimeType)
         {
-            string jsonResult = await _aiOcrService.ExtractInvoiceDataAsync(base64Image);
+            string jsonResult = await _aiOcrService.ExtractInvoiceDataAsync(base64Image, mimeType);
 
             try
             {
@@ -46,7 +46,7 @@ namespace WMS.Application.Services
             }
             catch (JsonException ex)
             {
-                throw new OcrParsingException("Không thể đọc dữ liệu hóa đơn, vui lòng chụp lại ảnh rỏ nét hơn. Chi tiết: " + ex.Message);
+                throw new OcrParsingException("Đình dạng JSON từ Gemini không hợp lệ. Chi tiết: " + ex.Message);
             }
         }
 

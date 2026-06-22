@@ -19,13 +19,14 @@ namespace WMS.Infrastructure.Services
             _configuration = configuration;
         }
 
-        public async Task<string> ExtractInvoiceDataAsync(string base64Image)
+        // BƯỚC 1: Cập nhật hàm để nhận thêm tham số mimeType
+        public async Task<string> ExtractInvoiceDataAsync(string base64Image, string mimeType)
         {
             var apiKey = _configuration["Gemini:ApiKey"];
             var baseUrl = _configuration["Gemini:BaseUrl"] ?? "https://generativelanguage.googleapis.com";
             
-            // Note: Using gemini-1.5-flash as it is recommended for multimodal tasks
-            var endpoint = $"{baseUrl}/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
+            // Note: Using gemini-2.5-flash - thế hệ mới nhất hỗ trợ multimodal (vision)
+            var endpoint = $"{baseUrl}/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
 
             var requestPayload = new
             {
@@ -65,11 +66,12 @@ IMPORTANT:
                             },
                             new
                             {
-                                inline_data = new
+                                // FIX: Gemini REST API yêu cầu camelCase: inlineData, mimeType
+                                // JsonNamingPolicy.CamelCase KHÔNG chuyển đổi snake_case (inline_data → inline_data, không phải inlineData)
+                                inlineData = new
                                 {
-                                    // Base64 payload, using a generic image mime type. 
-                                    // You can adjust mime_type dynamically if needed.
-                                    mime_type = "image/jpeg", 
+                                    // BƯỚC 2: Truyền biến mimeType linh hoạt thay vì gán cứng "image/jpeg"
+                                    mimeType = mimeType,
                                     data = base64Image
                                 }
                             }

@@ -57,7 +57,7 @@ public class CompletionCheckService : ICompletionCheckService
                         it.ReferenceId == receipt.Id &&
                         it.ProductId == detail.ProductId &&
                         it.ZoneId == detail.ZoneId &&
-                        it.TransactionType == "INBOUND" &&
+                        it.TransactionType == TransactionType.Inbound &&
                         it.QuantityChange == detail.ActualQuantity
                     );
 

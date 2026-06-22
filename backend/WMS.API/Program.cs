@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
-using WMS.Infrastructure.Data;
-using WMS.Infrastructure;
+using WMS.API.Authorization;
 using WMS.API.Middlewares;
 using WMS.Application;
+using WMS.Infrastructure;
+using WMS.Infrastructure.Data;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -81,8 +83,42 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-// Authorization
-builder.Services.AddAuthorization();
+// ── Authorization: Policy-based RBAC động ──────────────────────────────────
+// Đăng ký PermissionHandler để tra cứu DB
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+
+// Tạo Policy cho từng Permission trong hệ thống
+// Mỗi Policy map 1-1 với tên Permission trong bảng Permissions
+var allPermissions = new[]
+{
+    // Receipt
+    "create_receipt", "view_receipt", "approve_qc_receipt",
+    "approve_ocr_receipt", "complete_putaway", "save_from_ocr", "run_ocr",
+    "approve_qc", // Policy dùng cho luồng QA/QC duyệt và lưu kết quả OCR
+    // Issue
+    "create_issue", "view_issue", "get_picking_plan", "confirm_pick", "handover_issue",
+    // Inventory
+    "view_inventory", "adjust_inventory", "view_transactions", "view_stock_summary",
+    // Master Data
+    "manage_warehouses", "manage_zones", "manage_products",
+    "manage_categories", "manage_suppliers", "manage_customers",
+    // User Management
+    "manage_users",
+    // Analytics
+    "view_analytics",
+    // FIX BUG 2: Alias policy cho Dashboard KPI - QA_QC được gán quyền này trong DB
+    // Thay thế hardcode [Authorize(Roles="Admin")] bằng policy-based RBAC động
+    "view_dashboard_kpi",
+};
+
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var permission in allPermissions)
+    {
+        options.AddPolicy(permission, policy =>
+            policy.Requirements.Add(new PermissionRequirement(permission)));
+    }
+});
 
 // CORS (nếu cần cho Frontend)
 builder.Services.AddCors(options =>

@@ -3,7 +3,7 @@ import API_ENDPOINTS from './endpoints';
 import type { ApiResponse } from '../types/api';
 
 export interface SupplierDto {
-  id: number;
+  id: string; // Guid
   name: string;
   contactPerson?: string;
   phone?: string;
@@ -23,11 +23,11 @@ class SupplierService {
     };
   }
 
-  async getSupplierById(id: number): Promise<SupplierDto> {
+  async getSupplierById(id: string): Promise<SupplierDto> {
     const response = await apiClient.get<ApiResponse<SupplierDto>>(
-      API_ENDPOINTS.suppliers.get(id.toString())
+      API_ENDPOINTS.suppliers.get(id)
     );
-    return (response.data.data ?? { id: 0, name: '' }) as SupplierDto;
+    return (response.data.data ?? { id: '', name: '' }) as SupplierDto;
   }
 }
 

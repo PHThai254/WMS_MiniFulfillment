@@ -50,8 +50,9 @@ public class InventoryService : IInventoryService
         var items = await query.OrderByDescending(t => t.CreatedAt)
             .Skip((pageIndex - 1) * pageSize).Take(pageSize)
             .Select(t => new InventoryTransactionDto(
-                t.Id, t.ProductId, t.Product!.Name, t.ZoneId, t.Zone!.Name,
-                t.QuantityChange, t.TransactionType, t.ReferenceId, t.CreatedAt)).ToListAsync();
+                t.Id, t.ProductId, t.Product != null ? t.Product.Name : string.Empty,
+                t.ZoneId, t.Zone != null ? t.Zone.Name : string.Empty,
+                t.QuantityChange, t.TransactionType.ToString(), t.ReferenceId, t.CreatedAt)).ToListAsync();
                 
         return new WMS.Application.Wrappers.PagedResult<InventoryTransactionDto> { Items = items, TotalCount = total, PageIndex = pageIndex, PageSize = pageSize };
     }
@@ -65,7 +66,7 @@ public class InventoryService : IInventoryService
         _db.InventoryTransactions.Add(new InventoryTransaction
         {
             Id = Guid.NewGuid(), ProductId = request.ProductId, ZoneId = request.ZoneId,
-            QuantityChange = change, TransactionType = "ADJUST", CreatedAt = DateTime.UtcNow
+            QuantityChange = change, TransactionType = TransactionType.Adjust, CreatedAt = DateTime.UtcNow
         });
         await _db.SaveChangesAsync();
     }
@@ -105,7 +106,7 @@ public class AnalyticsService : IAnalyticsService
             ProductId = g.Key.ProductId,
             ProductName = g.Key.ProductName,
             ProductBarcode = g.Key.ProductBarcode,
-            TotalQuantity = g.Sum(i => i.Quantity) // Tính tổng dưới SQL
+            TotalQuantity = g.Sum(i => i.Quantity)
         })
         .OrderBy(x => x.TotalQuantity)
         .Take(top)
@@ -133,8 +134,8 @@ public class AnalyticsService : IAnalyticsService
             var dayTx = txs.Where(t => t.CreatedAt.Date == date);
             return new StockMovementDto(
                 date.ToString("dd/MM"),
-                dayTx.Where(t => t.TransactionType == "INBOUND").Sum(t => t.QuantityChange),
-                Math.Abs(dayTx.Where(t => t.TransactionType == "OUTBOUND").Sum(t => t.QuantityChange)));
+                dayTx.Where(t => t.TransactionType == TransactionType.Inbound).Sum(t => t.QuantityChange),
+                Math.Abs(dayTx.Where(t => t.TransactionType == TransactionType.Outbound).Sum(t => t.QuantityChange)));
         }).ToList();
     }
 }
@@ -145,14 +146,52 @@ public class UserManagementService : IUserManagementService
     public UserManagementService(ApplicationDbContext db) => _db = db;
 
     public async Task<List<UserDto>> GetAllAsync() =>
-        await _db.Users.Include(u => u.Role).Include(u => u.Warehouse).AsNoTracking()
-            .Select(u => new UserDto(u.Id, u.Username, u.Role!.Name, u.RoleId, u.WarehouseId, u.Warehouse != null ? u.Warehouse.Name : null))
+        await _db.Users
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .Include(u => u.Warehouse)
+            .AsNoTracking()
+            .Select(u => new UserDto
+            {
+                Id          = u.Id,
+                Username    = u.Username,
+                RoleName    = u.Role!.Name,
+                RoleId      = u.RoleId,
+                WarehouseId = u.WarehouseId,
+                WarehouseName = u.Warehouse != null ? u.Warehouse.Name : null,
+                Permissions = u.Role.RolePermissions
+                                   .Select(rp => rp.Permission!.Name)
+                                   .ToList()
+            })
             .ToListAsync();
 
     public async Task<UserDto?> GetByIdAsync(Guid id)
     {
-        var u = await _db.Users.Include(u => u.Role).Include(u => u.Warehouse).AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return u is null ? null : new UserDto(u.Id, u.Username, u.Role?.Name ?? string.Empty, u.RoleId, u.WarehouseId, u.Warehouse?.Name);
+        var u = await _db.Users
+            .Include(u => u.Role!)
+                .ThenInclude(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+            .Include(u => u.Warehouse)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (u is null) return null;
+
+        return new UserDto
+        {
+            Id            = u.Id,
+            Username      = u.Username,
+            RoleName      = u.Role?.Name ?? string.Empty,
+            RoleId        = u.RoleId,
+            WarehouseId   = u.WarehouseId,
+            WarehouseName = u.Warehouse?.Name,
+            Permissions   = u.Role?.RolePermissions
+                               .Select(rp => rp.Permission?.Name ?? string.Empty)
+                               .Where(name => name.Length > 0)
+                               .ToList()
+                            ?? new List<string>()
+        };
     }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request)

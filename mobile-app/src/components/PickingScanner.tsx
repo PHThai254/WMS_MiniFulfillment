@@ -6,8 +6,11 @@ import { CameraComponent } from './CameraView';
 import { ScannerHeader } from './ScannerHeader';
 import { ScannerButton } from './ScannerButton';
 import { useBarcodeScan } from '../di/hooks/useBarcodeScan';
+import { inventoryService } from '../infrastructure/inventoryService';
 
 interface PickingTask {
+  issueId: string;       // ID của Issue (Lệnh xuất kho)
+  issueDetailId: string; // ID của IssueDetail (từng dòng sản phẩm)
   zoneLocation: string;
   expectedBarcode: string;
   quantity: number;
@@ -23,6 +26,8 @@ interface PickingScannerProps {
 
 export const PickingScanner: React.FC<PickingScannerProps> = ({
   task = {
+    issueId: '',
+    issueDetailId: '',
     zoneLocation: 'DÃY A - NHU CẦU 5 SẢN PHẨM',
     expectedBarcode: 'CODE123456',
     quantity: 5,
@@ -33,13 +38,17 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [errorAnimation] = useState(new Animated.Value(0));
+  // ✅ State chặn gọi API đồng thời (kết hợp với debounce của useBarcodeScan)
+  const [isApiCalling, setIsApiCalling] = useState(false);
 
   const { handleBarcodeScan, isScanning } = useBarcodeScan({
     onScan: (result) => handleProductScan(result.barcode),
     debounceMs: 1500,
   });
 
-  const handleProductScan = (barcode: string) => {
+  // ✅ handleProductScan: Xử lý barcode quét được từ camera
+  // Khi đủ số lượng → gọi API confirmPicking (InventoryTransaction OUTBOUND)
+  const handleProductScan = async (barcode: string) => {
     if (barcode !== task.expectedBarcode) {
       // QUÉT SAI MÃ → Vibration mạnh + Nháy đỏ
       if (Vibration.vibrate) {
@@ -67,23 +76,46 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
     // QUÉT ĐÚNG
     setIsError(false);
     setScannedBarcode(barcode);
-    setPickedQuantity(Math.min(pickedQuantity + 1, task.quantity));
+    const newPickedQty = Math.min(pickedQuantity + 1, task.quantity);
+    setPickedQuantity(newPickedQty);
 
-    if (pickedQuantity + 1 >= task.quantity) {
-      Alert.alert('✅ HOÀN TẤT', 'Đã nhặt đủ số lượng', [
-        {
-          text: 'OK',
-          onPress: () => {
-            onSuccess?.({
-              scannedBarcode: barcode,
-              pickedQuantity: task.quantity,
-            });
-            // Reset form
-            setPickedQuantity(0);
-            setScannedBarcode(null);
-          },
-        },
-      ]);
+    if (newPickedQty >= task.quantity) {
+      // Đủ số lượng → Gọi API xác nhận picking
+      if (isApiCalling) return;
+      setIsApiCalling(true);
+
+      try {
+        // ✅ Gọi đúng endpoint: POST /api/Issues/{issueId}/confirm-pick
+        // Backend trừ Inventory, ghi InventoryTransaction OUTBOUND (FIFO)
+        const res = await inventoryService.confirmPicking(task.issueId, {
+          issueDetailId: task.issueDetailId,
+          pickedQuantity: task.quantity,
+        });
+
+        if (res?.success) {
+          Alert.alert('✅ HOÀN TẤT', 'Đã nhặt đủ số lượng', [
+            {
+              text: 'OK',
+              onPress: () => {
+                onSuccess?.({
+                  scannedBarcode: barcode,
+                  pickedQuantity: task.quantity,
+                });
+                // Reset form
+                setPickedQuantity(0);
+                setScannedBarcode(null);
+              },
+            },
+          ]);
+        } else {
+          Alert.alert('❌ Lỗi', res?.message || 'Báo cáo picking thất bại.');
+        }
+      } catch (error: any) {
+        const msg = error?.response?.data?.message || error?.message || 'Không thể kết nối máy chủ.';
+        Alert.alert('❌ Lỗi kết nối', msg);
+      } finally {
+        setIsApiCalling(false);
+      }
     }
   };
 
@@ -131,12 +163,6 @@ export const PickingScanner: React.FC<PickingScannerProps> = ({
             <Text style={styles.infoValue}>{scannedBarcode}</Text>
           </View>
         )}
-
-        {/* Expected barcode */}
-        <View style={styles.instructionBox}>
-          <Text style={styles.instructionLabel}>Mã cần quét:</Text>
-          <Text style={styles.barcodeDisplay}>{task.expectedBarcode}</Text>
-        </View>
 
         {/* Action buttons */}
         <View style={styles.buttonGroup}>

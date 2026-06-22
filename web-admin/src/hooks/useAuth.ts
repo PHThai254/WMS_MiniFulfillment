@@ -10,6 +10,8 @@ export const useAuth = (): AuthContextType => {
     const refreshToken = useAuthStore((state) => state.refreshToken);
     const hasRole = useAuthStore((state) => state.hasRole);
     const canAccessWarehouse = useAuthStore((state) => state.canAccessWarehouse);
+    // FIX BUG 3: Expose hasPermission để UI kiểm tra quyền động bằng permission code
+    const hasPermission = useAuthStore((state) => state.hasPermission);
 
     return {
         user,
@@ -20,5 +22,6 @@ export const useAuth = (): AuthContextType => {
         refreshToken,
         hasRole,
         canAccessWarehouse,
+        hasPermission,
     };
 };

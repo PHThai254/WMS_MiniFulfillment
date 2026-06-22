@@ -15,8 +15,9 @@ namespace WMS.API.Controllers;
 /// Luồng: Upload ảnh -> Gemini OCR -> Trả về JSON chờ duyệt QA/QC
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
-[Authorize(Roles = "QA_QC, Admin")]
+[Route("api/Ocr")]
+// ĐÃ SỬA: Đổi từ gán cứng Role sang dùng Policy phân quyền động
+[Authorize(Policy = "run_ocr")] 
 public class OcrController : ControllerBase
 {
     private readonly IOcrProcessingService _ocrProcessingService;
@@ -64,7 +65,8 @@ public class OcrController : ControllerBase
             byte[] imageBytes = memoryStream.ToArray();
             string base64String = Convert.ToBase64String(imageBytes);
 
-            var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String);
+            // ĐÃ SỬA: Truyền thêm thuộc tính image.ContentType (VD: "image/png") xuống tầng dưới
+            var result = await _ocrProcessingService.ProcessInvoiceImageAsync(base64String, image.ContentType);
             
             return Ok(ApiResponse<object>.Succeeded(result, "Xử lý OCR thành công"));
         }

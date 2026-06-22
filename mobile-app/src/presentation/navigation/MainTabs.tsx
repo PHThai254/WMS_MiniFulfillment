@@ -1,8 +1,6 @@
 // mobile-app/src/presentation/navigation/MainTabs.tsx
-// Bottom Tab Navigator - Tuần 6 cập nhật bởi Đức Anh
-// Xóa tab Scanner riêng biệt (PickingScanner là component, không phải full screen)
-// Việc scan được thực hiện qua navigation từ HomeScreen → PutAway / PickingDetail
-
+import {PickingScanner} from '../../components/PickingScanner'; 
+import {PutAwayScanner} from '../../components/PutAwayScanner'; // ✅ Staff cất hàng
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,17 +16,18 @@ export const MainTabs = () => {
       screenOptions={{
         tabBarActiveTintColor: '#4A90E2',
         tabBarInactiveTintColor: '#9CA3AF',
-        headerShown: false, // Header tự quản lý trong từng màn hình (Home có header riêng)
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E7EB',
-          height: 60,
-          paddingBottom: 8,
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#4A90E2',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+          fontSize: 18,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          marginBottom: 4,
         },
       }}
     >
@@ -65,6 +64,29 @@ export const MainTabs = () => {
           ),
         }}
       />
+      <Tab.Screen 
+        name="Scanner" 
+        component={PickingScanner} 
+        options={{ 
+            title: 'Nhặt Hàng', 
+            tabBarLabel: 'Nhặt Hàng',
+            tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="barcode-scan" color={color} size={size} />
+            ),
+        }} 
+        />
+      {/* ✅ Tab Cất Hàng: Dành cho Staff thực hiện Put-away sau khi QA_QC duyệt phiếu nhập */}
+      <Tab.Screen 
+        name="PutAway" 
+        component={PutAwayScanner} 
+        options={{ 
+            title: 'Cất Hàng', 
+            tabBarLabel: 'Cất Hàng',
+            tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="package-down" color={color} size={size} />
+            ),
+        }} 
+        />
     </Tab.Navigator>
   );
 };
