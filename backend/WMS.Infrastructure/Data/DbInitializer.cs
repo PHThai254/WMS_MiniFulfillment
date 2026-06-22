@@ -1,7 +1,6 @@
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using WMS.Domain.Entities;
-using Bogus;
 
 namespace WMS.Infrastructure.Data;
 
@@ -18,8 +17,10 @@ public static class DbInitializer
         var (adminRole, qaRole, staffRole) = await EnsureRolesAsync(context);
         var permissions = await EnsurePermissionsAsync(context);
         await EnsureRolePermissionsAsync(context, adminRole, qaRole, staffRole, permissions);
-        await EnsureAdminUserAsync(context, adminRole);
-        await EnsureMasterDataAsync(context);
+        
+        var (warehouse, zoneA, zoneB) = await EnsureMasterDataAsync(context);
+        await EnsureUsersAsync(context, adminRole, qaRole, staffRole, warehouse);
+        await EnsureTransactionsAsync(context, warehouse, zoneA, zoneB);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -185,73 +186,220 @@ public static class DbInitializer
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // STEP 4: Admin User mặc định
+    // STEP 4: Users
     // ══════════════════════════════════════════════════════════════════════════
-    private static async Task EnsureAdminUserAsync(ApplicationDbContext context, Role adminRole)
+    private static async Task EnsureUsersAsync(ApplicationDbContext context, Role adminRole, Role qaRole, Role staffRole, Warehouse warehouse)
     {
-        var hasAdmin = await context.Users.AnyAsync(u => u.Username == "admin");
-        if (hasAdmin) return;
-
-        // Lấy hoặc dùng ID của admin user mẫu (seed)
-        // CreatedByUserId cho Receipt/Issue sẽ dùng ID này
-        var adminUserId = Guid.NewGuid();
-
-        context.Users.Add(new User
+        if (!await context.Users.AnyAsync(u => u.Username == "admin"))
         {
-            Id           = adminUserId,
-            Username     = "admin",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
-            RoleId       = adminRole.Id,
-            WarehouseId  = null  // Admin không gắn kho cụ thể
-        });
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                RoleId = adminRole.Id,
+                WarehouseId = null
+            });
+        }
+
+        if (!await context.Users.AnyAsync(u => u.Username == "qa_user"))
+        {
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "qa_user",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("qa123"),
+                RoleId = qaRole.Id,
+                WarehouseId = warehouse.Id
+            });
+        }
+
+        if (!await context.Users.AnyAsync(u => u.Username == "staff_user"))
+        {
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "staff_user",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("staff123"),
+                RoleId = staffRole.Id,
+                WarehouseId = warehouse.Id
+            });
+        }
 
         await context.SaveChangesAsync();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // STEP 5: Master Data (Products, Categories, v.v.)
+    // STEP 5: Master Data (Warehouses, Zones, Products, Categories, v.v.)
     // ══════════════════════════════════════════════════════════════════════════
-    private static async Task EnsureMasterDataAsync(ApplicationDbContext context)
+    private static async Task<(Warehouse warehouse, Zone zoneA, Zone zoneB)> EnsureMasterDataAsync(ApplicationDbContext context)
     {
-        if (await context.Products.AnyAsync()) return;
-
-        var categoryNames = new[]
+        Warehouse warehouse = await context.Warehouses.FirstOrDefaultAsync();
+        if (warehouse == null)
         {
-            "Đồ điện gia dụng", "Thiết bị nhà bếp", "Dụng cụ vệ sinh",
-            "Thực phẩm đóng gói", "Đồ uống", "Gia vị", "Hóa mỹ phẩm"
-        };
+            warehouse = new Warehouse { Id = Guid.NewGuid(), Name = "Kho tổng Hà Nội", Location = "Thanh Xuân, Hà Nội" };
+            context.Warehouses.Add(warehouse);
+            await context.SaveChangesAsync();
+        }
 
-        var productNames = new[]
+        var zones = await context.Zones.Where(z => z.WarehouseId == warehouse.Id).ToListAsync();
+        var zoneA = zones.FirstOrDefault(z => z.Name == "Khu A - Điện tử");
+        if (zoneA == null)
         {
-            // Đồ gia dụng
-            "Nồi cơm điện Sunhouse 1.8L", "Lò vi sóng Sharp 20L", "Bếp từ đôi Kangaroo",
-            "Quạt đứng Senko", "Ấm siêu tốc Philips 1.5L", "Máy xay sinh tố Panasonic",
-            "Chảo chống dính Elmich", "Cây lau nhà 360 độ",
-            // FMCG
-            "Thùng 30 gói mì Hảo Hảo", "Nước mắm Nam Ngư 750ml", "Dầu ăn Tường An 1L",
-            "Lốc 4 hộp sữa Vinamilk 180ml", "Nước giặt OMO Matic 3.6kg", "Thùng 24 lon Coca-Cola",
-            "Nước rửa chén Sunlight", "Dầu gội Clear Men 630g"
-        };
+            zoneA = new Zone { Id = Guid.NewGuid(), WarehouseId = warehouse.Id, Name = "Khu A - Điện tử" };
+            context.Zones.Add(zoneA);
+        }
 
-        var categoryFaker = new Faker<Category>()
-            .RuleFor(c => c.Id, _ => Guid.NewGuid())
-            .RuleFor(c => c.Name, f => f.PickRandom(categoryNames))
-            .RuleFor(c => c.Description, f => f.Lorem.Sentence());
-
-        var categories = categoryFaker.Generate(7);
-        context.Categories.AddRange(categories);
+        var zoneB = zones.FirstOrDefault(z => z.Name == "Khu B - Gia dụng");
+        if (zoneB == null)
+        {
+            zoneB = new Zone { Id = Guid.NewGuid(), WarehouseId = warehouse.Id, Name = "Khu B - Gia dụng" };
+            context.Zones.Add(zoneB);
+        }
         await context.SaveChangesAsync();
 
-        var productFaker = new Faker<Product>()
-            .RuleFor(p => p.Id, _ => Guid.NewGuid())
-            .RuleFor(p => p.Name, f => f.PickRandom(productNames) + " " + f.Random.AlphaNumeric(3).ToUpper())
-            .RuleFor(p => p.SKU, f => "SKU" + f.Commerce.Ean8())
-            .RuleFor(p => p.Barcode, f => f.Commerce.Ean13())
-            .RuleFor(p => p.Price, f => Math.Round((decimal)(f.Random.Number(150, 20000) * 100), 2))
-            .RuleFor(p => p.CategoryId, f => f.PickRandom(categories).Id);
+        if (!await context.Categories.AnyAsync())
+        {
+            var catDienTu = new Category { Id = Guid.NewGuid(), Name = "Điện tử", Description = "Điện thoại, máy tính, TV..." };
+            var catGiaDung = new Category { Id = Guid.NewGuid(), Name = "Gia dụng", Description = "Đồ dùng nhà bếp, quạt..." };
+            context.Categories.AddRange(catDienTu, catGiaDung);
+            await context.SaveChangesAsync();
+        }
 
-        var products = productFaker.Generate(100);
-        context.Products.AddRange(products);
+        if (!await context.Products.AnyAsync())
+        {
+            var catDienTu = await context.Categories.FirstOrDefaultAsync(c => c.Name == "Điện tử");
+            var catGiaDung = await context.Categories.FirstOrDefaultAsync(c => c.Name == "Gia dụng");
+            if (catDienTu != null && catGiaDung != null)
+            {
+                context.Products.AddRange(
+                    new Product { Id = Guid.NewGuid(), Name = "iPhone 15 Pro Max 256GB", SKU = "IP15PM-256", Barcode = "8931234567890", Price = 34000000, CategoryId = catDienTu.Id },
+                    new Product { Id = Guid.NewGuid(), Name = "Smart Tivi Samsung 65 inch", SKU = "SS-TV65", Barcode = "8931234567891", Price = 15000000, CategoryId = catDienTu.Id },
+                    new Product { Id = Guid.NewGuid(), Name = "Nồi chiên không dầu Philips", SKU = "PH-NCKD", Barcode = "8931234567892", Price = 2500000, CategoryId = catGiaDung.Id },
+                    new Product { Id = Guid.NewGuid(), Name = "Lò vi sóng Sharp 20L", SKU = "SH-LVS20", Barcode = "8931234567893", Price = 1800000, CategoryId = catGiaDung.Id }
+                );
+                await context.SaveChangesAsync();
+            }
+        }
+
+        if (!await context.Suppliers.AnyAsync())
+        {
+            context.Suppliers.AddRange(
+                new Supplier { Id = Guid.NewGuid(), Name = "Công ty TNHH Điện tử VN", ContactPerson = "Nguyễn Văn A", Phone = "0987654321", Address = "123 Đường ABC, Hà Nội" },
+                new Supplier { Id = Guid.NewGuid(), Name = "Nhà phân phối Gia dụng xanh", ContactPerson = "Trần Thị B", Phone = "0912345678", Address = "456 Đường XYZ, Hà Nội" }
+            );
+            await context.SaveChangesAsync();
+        }
+
+        if (!await context.Customers.AnyAsync())
+        {
+            context.Customers.AddRange(
+                new Customer { Id = Guid.NewGuid(), Name = "Siêu thị Điện máy Xanh", Phone = "18001061", DeliveryAddress = "789 Đường LMN, Hà Nội" },
+                new Customer { Id = Guid.NewGuid(), Name = "Cửa hàng tiện lợi 247", Phone = "0241234567", DeliveryAddress = "101 Đường PQR, Hà Nội" }
+            );
+            await context.SaveChangesAsync();
+        }
+        return (warehouse, zoneA, zoneB);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // STEP 6: Transactions (Receipts, Issues, Inventory)
+    // ══════════════════════════════════════════════════════════════════════════
+    private static async Task EnsureTransactionsAsync(ApplicationDbContext context, Warehouse warehouse, Zone zoneA, Zone zoneB)
+    {
+        if (await context.Receipts.AnyAsync()) return;
+
+        var adminUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+        var supplier = await context.Suppliers.FirstOrDefaultAsync();
+        var customer = await context.Customers.FirstOrDefaultAsync();
+        var products = await context.Products.Take(4).ToListAsync();
+
+        if (adminUser == null || supplier == null || customer == null || products.Count < 2) 
+        {
+            Console.WriteLine($"[Seed] Missing required entities for transactions. Admin: {adminUser!=null}, Supplier: {supplier!=null}, Customer: {customer!=null}, Products: {products.Count}");
+            return;
+        }
+
+        // 1. Tạo Phiếu Nhập 1 (Completed)
+        var receipt1 = new Receipt
+        {
+            Id = Guid.NewGuid(),
+            WarehouseId = warehouse.Id,
+            SupplierId = supplier.Id,
+            CreatedByUserId = adminUser.Id,
+            Status = WMS.Domain.Enums.ReceiptStatus.Completed,
+            CreatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        context.Receipts.Add(receipt1);
+
+        var r1d1 = new ReceiptDetail { Id = Guid.NewGuid(), ReceiptId = receipt1.Id, ProductId = products[0].Id, ZoneId = zoneA.Id, ExpectedQuantity = 100, ActualQuantity = 100, UnitPrice = 30000000 };
+        var r1d2 = new ReceiptDetail { Id = Guid.NewGuid(), ReceiptId = receipt1.Id, ProductId = products[1].Id, ZoneId = zoneA.Id, ExpectedQuantity = 50, ActualQuantity = 50, UnitPrice = 12000000 };
+        context.ReceiptDetails.AddRange(r1d1, r1d2);
+
+        // Inventory cho Receipt 1
+        var inv1 = new Inventory { Id = Guid.NewGuid(), WarehouseId = warehouse.Id, ZoneId = zoneA.Id, ProductId = products[0].Id, Quantity = 100, LastRestockedDate = DateTime.UtcNow.AddDays(-2) };
+        var inv2 = new Inventory { Id = Guid.NewGuid(), WarehouseId = warehouse.Id, ZoneId = zoneA.Id, ProductId = products[1].Id, Quantity = 50, LastRestockedDate = DateTime.UtcNow.AddDays(-2) };
+        context.Inventories.AddRange(inv1, inv2);
+
+        // Transaction cho Receipt 1
+        context.InventoryTransactions.AddRange(
+            new InventoryTransaction { Id = Guid.NewGuid(), ProductId = products[0].Id, ZoneId = zoneA.Id, QuantityChange = 100, TransactionType = WMS.Domain.Enums.TransactionType.Inbound, ReferenceId = receipt1.Id, CreatedAt = receipt1.CreatedAt },
+            new InventoryTransaction { Id = Guid.NewGuid(), ProductId = products[1].Id, ZoneId = zoneA.Id, QuantityChange = 50, TransactionType = WMS.Domain.Enums.TransactionType.Inbound, ReferenceId = receipt1.Id, CreatedAt = receipt1.CreatedAt }
+        );
+
+        // 2. Tạo Phiếu Nhập 2 (Draft)
+        var receipt2 = new Receipt
+        {
+            Id = Guid.NewGuid(),
+            WarehouseId = warehouse.Id,
+            SupplierId = supplier.Id,
+            CreatedByUserId = adminUser.Id,
+            Status = WMS.Domain.Enums.ReceiptStatus.Draft,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.Receipts.Add(receipt2);
+        context.ReceiptDetails.AddRange(
+            new ReceiptDetail { Id = Guid.NewGuid(), ReceiptId = receipt2.Id, ProductId = products[2].Id, ZoneId = null, ExpectedQuantity = 200, ActualQuantity = 0, UnitPrice = 2000000 },
+            new ReceiptDetail { Id = Guid.NewGuid(), ReceiptId = receipt2.Id, ProductId = products[3].Id, ZoneId = null, ExpectedQuantity = 100, ActualQuantity = 0, UnitPrice = 1500000 }
+        );
+
+        // 3. Tạo Phiếu Xuất 1 (Handover - Đã hoàn thành)
+        var issue1 = new Issue
+        {
+            Id = Guid.NewGuid(),
+            WarehouseId = warehouse.Id,
+            CustomerId = customer.Id,
+            CreatedByUserId = adminUser.Id,
+            Status = WMS.Domain.Enums.IssueStatus.Handover,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        context.Issues.Add(issue1);
+
+        var i1d1 = new IssueDetail { Id = Guid.NewGuid(), IssueId = issue1.Id, ProductId = products[0].Id, ZoneId = zoneA.Id, QuantityToPick = 2, PickedQuantity = 2 };
+        context.IssueDetails.Add(i1d1);
+
+        // Trừ tồn kho
+        inv1.Quantity -= 2;
+
+        context.InventoryTransactions.Add(
+            new InventoryTransaction { Id = Guid.NewGuid(), ProductId = products[0].Id, ZoneId = zoneA.Id, QuantityChange = -2, TransactionType = WMS.Domain.Enums.TransactionType.Outbound, ReferenceId = issue1.Id, CreatedAt = issue1.CreatedAt }
+        );
+
+        // 4. Tạo Phiếu Xuất 2 (Pending)
+        var issue2 = new Issue
+        {
+            Id = Guid.NewGuid(),
+            WarehouseId = warehouse.Id,
+            CustomerId = customer.Id,
+            CreatedByUserId = adminUser.Id,
+            Status = WMS.Domain.Enums.IssueStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.Issues.Add(issue2);
+        context.IssueDetails.Add(
+            new IssueDetail { Id = Guid.NewGuid(), IssueId = issue2.Id, ProductId = products[1].Id, ZoneId = null, QuantityToPick = 5, PickedQuantity = 0 }
+        );
+
         await context.SaveChangesAsync();
     }
 }
