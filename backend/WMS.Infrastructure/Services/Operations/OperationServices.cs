@@ -212,7 +212,9 @@ public class ReceiptService : IReceiptService
         await imageStream.CopyToAsync(ms);
         var base64Image = Convert.ToBase64String(ms.ToArray());
 
-        var jsonResult = await _aiOcrService.ExtractInvoiceDataAsync(base64Image);
+        var extension = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
+        var mimeType = extension == ".png" ? "image/png" : extension == ".webp" ? "image/webp" : extension == ".heic" ? "image/heic" : "image/jpeg";
+        var jsonResult = await _aiOcrService.ExtractInvoiceDataAsync(base64Image, mimeType);
 
         var items = new List<OcrLineItemDto>();
         bool hasLowConfidence = false;
