@@ -7,3 +7,4 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { StatusBadge } from './StatusBadge';
 export { Navbar } from './Navbar';
 export { Sidebar } from './Sidebar';
+export { DefaultButton } from './DefaultButton';

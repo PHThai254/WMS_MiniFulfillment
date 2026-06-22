@@ -28,6 +28,7 @@ export interface ICategory {
 }
 
 export interface IProduct {
+    price: number;
     id: string;
     sku: string;
     barcode: string;
@@ -63,6 +64,7 @@ export interface IInventory {
     productSKU: string;
     quantity: number;
     lastRestockedDate: string;
+    productPrice?: number;
 }
 
 export interface IStockSummary {
@@ -72,6 +74,7 @@ export interface IStockSummary {
     productSKU: string;
     totalQuantity: number;
     stockByZone: IStockByZone[];
+    productPrice?: number;
 }
 
 export interface IStockByZone {
@@ -118,6 +121,7 @@ export interface IReceiptDetail {
     zoneName?: string;
     expectedQuantity: number;
     actualQuantity: number;
+    unitPrice?: number;
 }
 
 // Issue (Phiếu Xuất)

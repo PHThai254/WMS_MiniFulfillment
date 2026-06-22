@@ -7,7 +7,7 @@ using WMS.Application.Wrappers;
 namespace WMS.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Warehouses")]
 [Authorize]
 public class WarehousesController : ControllerBase
 {
@@ -30,7 +30,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_warehouses")]
     public async Task<ActionResult<ApiResponse<WarehouseDto>>> Create([FromBody] CreateWarehouseRequest request)
     {
         var data = await _service.CreateAsync(request);
@@ -38,7 +38,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_warehouses")]
     public async Task<ActionResult<ApiResponse<WarehouseDto>>> Update(Guid id, [FromBody] UpdateWarehouseRequest request)
     {
         var data = await _service.UpdateAsync(id, request);
@@ -46,7 +46,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_warehouses")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);
@@ -55,7 +55,7 @@ public class WarehousesController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Zones")]
 [Authorize]
 public class ZonesController : ControllerBase
 {
@@ -78,7 +78,7 @@ public class ZonesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_zones")]
     public async Task<ActionResult<ApiResponse<ZoneDto>>> Create([FromBody] CreateZoneRequest request)
     {
         var data = await _service.CreateAsync(request);
@@ -86,7 +86,7 @@ public class ZonesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_zones")]
     public async Task<ActionResult<ApiResponse<ZoneDto>>> Update(Guid id, [FromBody] UpdateZoneRequest request)
     {
         var data = await _service.UpdateAsync(id, request);
@@ -94,7 +94,7 @@ public class ZonesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_zones")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);
@@ -103,7 +103,7 @@ public class ZonesController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Categories")]
 [Authorize]
 public class CategoriesController : ControllerBase
 {
@@ -118,7 +118,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_categories")]
     public async Task<ActionResult<ApiResponse<CategoryDto>>> Create([FromBody] CreateCategoryRequest request)
     {
         var data = await _service.CreateAsync(request);
@@ -126,7 +126,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_categories")]
     public async Task<ActionResult<ApiResponse<CategoryDto>>> Update(Guid id, [FromBody] UpdateCategoryRequest request)
     {
         var data = await _service.UpdateAsync(id, request);
@@ -134,7 +134,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_categories")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);
@@ -143,7 +143,7 @@ public class CategoriesController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Products")]
 [Authorize]
 public class ProductsController : ControllerBase
 {
@@ -174,7 +174,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_products")]
     public async Task<ActionResult<ApiResponse<ProductDto>>> Create([FromBody] CreateProductRequest request)
     {
         var data = await _service.CreateAsync(request);
@@ -182,7 +182,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_products")]
     public async Task<ActionResult<ApiResponse<ProductDto>>> Update(Guid id, [FromBody] UpdateProductRequest request)
     {
         var data = await _service.UpdateAsync(id, request);
@@ -190,16 +190,40 @@ public class ProductsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_products")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);
         return Ok(ApiResponse<object>.Succeeded(null!, "Xóa sản phẩm thành công."));
     }
+
+    [HttpPost("{id:guid}/image")]
+    [Authorize(Policy = "manage_products")]
+    public async Task<ActionResult<ApiResponse<ProductImageUploadResponse>>> UploadImage(Guid id, IFormFile image)
+    {
+        if (image == null || image.Length == 0)
+            return BadRequest(ApiResponse<ProductImageUploadResponse>.Failed("File ảnh không được để trống."));
+
+        var imageService = HttpContext.RequestServices.GetRequiredService<IProductImageService>();
+        using (var stream = image.OpenReadStream())
+        {
+            var result = await imageService.UploadProductImageAsync(id, stream, image.FileName);
+            return Ok(ApiResponse<ProductImageUploadResponse>.Succeeded(result, "Tải lên ảnh thành công."));
+        }
+    }
+
+    [HttpDelete("{id:guid}/image")]
+    [Authorize(Policy = "manage_products")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteImage(Guid id)
+    {
+        var imageService = HttpContext.RequestServices.GetRequiredService<IProductImageService>();
+        await imageService.DeleteProductImageAsync(id);
+        return Ok(ApiResponse<object>.Succeeded(null!, "Xóa ảnh sản phẩm thành công."));
+    }
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Suppliers")]
 [Authorize]
 public class SuppliersController : ControllerBase
 {
@@ -211,17 +235,17 @@ public class SuppliersController : ControllerBase
         => Ok(ApiResponse<List<SupplierDto>>.Succeeded(await _service.GetAllAsync()));
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_suppliers")]
     public async Task<ActionResult<ApiResponse<SupplierDto>>> Create([FromBody] CreateSupplierRequest request)
         => Ok(ApiResponse<SupplierDto>.Succeeded(await _service.CreateAsync(request), "Tạo nhà cung cấp thành công."));
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_suppliers")]
     public async Task<ActionResult<ApiResponse<SupplierDto>>> Update(Guid id, [FromBody] UpdateSupplierRequest request)
         => Ok(ApiResponse<SupplierDto>.Succeeded(await _service.UpdateAsync(id, request), "Cập nhật thành công."));
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_suppliers")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);
@@ -230,7 +254,7 @@ public class SuppliersController : ControllerBase
 }
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Customers")]
 [Authorize]
 public class CustomersController : ControllerBase
 {
@@ -242,17 +266,17 @@ public class CustomersController : ControllerBase
         => Ok(ApiResponse<List<CustomerDto>>.Succeeded(await _service.GetAllAsync()));
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_customers")]
     public async Task<ActionResult<ApiResponse<CustomerDto>>> Create([FromBody] CreateCustomerRequest request)
         => Ok(ApiResponse<CustomerDto>.Succeeded(await _service.CreateAsync(request), "Tạo khách hàng thành công."));
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_customers")]
     public async Task<ActionResult<ApiResponse<CustomerDto>>> Update(Guid id, [FromBody] UpdateCustomerRequest request)
         => Ok(ApiResponse<CustomerDto>.Succeeded(await _service.UpdateAsync(id, request), "Cập nhật thành công."));
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "manage_customers")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
     {
         await _service.DeleteAsync(id);

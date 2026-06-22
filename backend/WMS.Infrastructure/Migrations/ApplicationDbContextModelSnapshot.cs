@@ -28,9 +28,13 @@ namespace WMS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -48,7 +52,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Phone")
                         .HasColumnType("nvarchar(max)");
@@ -73,6 +78,12 @@ namespace WMS.Infrastructure.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
 
@@ -83,9 +94,11 @@ namespace WMS.Infrastructure.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.HasIndex("WarehouseId");
-
                     b.HasIndex("ZoneId");
+
+                    b.HasIndex("WarehouseId", "ZoneId", "ProductId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Inventory_Warehouse_Zone_Product_Unique");
 
                     b.ToTable("Inventories");
                 });
@@ -110,7 +123,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("TransactionType")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<Guid>("ZoneId")
                         .HasColumnType("uniqueidentifier");
@@ -133,9 +147,8 @@ namespace WMS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uniqueidentifier");
@@ -143,10 +156,15 @@ namespace WMS.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("CustomerId");
 
@@ -187,6 +205,31 @@ namespace WMS.Infrastructure.Migrations
                     b.ToTable("IssueDetails");
                 });
 
+            modelBuilder.Entity("WMS.Domain.Entities.Permission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Permissions_Name_Unique");
+
+                    b.ToTable("Permissions");
+                });
+
             modelBuilder.Entity("WMS.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -195,22 +238,39 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Barcode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ImagePath")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("SKU")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Barcode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Products_Barcode_Unique");
+
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("SKU")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Products_SKU_Unique");
 
                     b.ToTable("Products");
                 });
@@ -224,9 +284,8 @@ namespace WMS.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -234,10 +293,15 @@ namespace WMS.Infrastructure.Migrations
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("SupplierId");
 
@@ -263,6 +327,9 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<Guid>("ReceiptId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("ZoneId")
                         .HasColumnType("uniqueidentifier");
@@ -290,11 +357,27 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
                     b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.RolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("RolePermissions");
                 });
 
             modelBuilder.Entity("WMS.Domain.Entities.Supplier", b =>
@@ -311,7 +394,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Phone")
                         .HasColumnType("nvarchar(max)");
@@ -329,7 +413,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("RefreshToken")
                         .HasColumnType("nvarchar(max)");
@@ -342,7 +427,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid?>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
@@ -350,6 +436,10 @@ namespace WMS.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RoleId");
+
+                    b.HasIndex("Username")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Users_Username_Unique");
 
                     b.HasIndex("WarehouseId");
 
@@ -368,7 +458,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -383,7 +474,8 @@ namespace WMS.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid>("WarehouseId")
                         .HasColumnType("uniqueidentifier");
@@ -398,19 +490,19 @@ namespace WMS.Infrastructure.Migrations
             modelBuilder.Entity("WMS.Domain.Entities.Inventory", b =>
                 {
                     b.HasOne("WMS.Domain.Entities.Product", "Product")
-                        .WithMany()
+                        .WithMany("Inventories")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("WMS.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
+                        .WithMany("Inventories")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("WMS.Domain.Entities.Zone", "Zone")
-                        .WithMany()
+                        .WithMany("Inventories")
                         .HasForeignKey("ZoneId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -425,13 +517,13 @@ namespace WMS.Infrastructure.Migrations
             modelBuilder.Entity("WMS.Domain.Entities.InventoryTransaction", b =>
                 {
                     b.HasOne("WMS.Domain.Entities.Product", "Product")
-                        .WithMany()
+                        .WithMany("InventoryTransactions")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("WMS.Domain.Entities.Zone", "Zone")
-                        .WithMany()
+                        .WithMany("InventoryTransactions")
                         .HasForeignKey("ZoneId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -443,16 +535,24 @@ namespace WMS.Infrastructure.Migrations
 
             modelBuilder.Entity("WMS.Domain.Entities.Issue", b =>
                 {
-                    b.HasOne("WMS.Domain.Entities.Customer", "Customer")
+                    b.HasOne("WMS.Domain.Entities.User", "CreatedByUser")
                         .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WMS.Domain.Entities.Customer", "Customer")
+                        .WithMany("Issues")
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("WMS.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
+                        .WithMany("Issues")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CreatedByUser");
 
                     b.Navigation("Customer");
 
@@ -468,7 +568,7 @@ namespace WMS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("WMS.Domain.Entities.Product", "Product")
-                        .WithMany()
+                        .WithMany("IssueDetails")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -498,16 +598,24 @@ namespace WMS.Infrastructure.Migrations
 
             modelBuilder.Entity("WMS.Domain.Entities.Receipt", b =>
                 {
-                    b.HasOne("WMS.Domain.Entities.Supplier", "Supplier")
+                    b.HasOne("WMS.Domain.Entities.User", "CreatedByUser")
                         .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WMS.Domain.Entities.Supplier", "Supplier")
+                        .WithMany("Receipts")
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("WMS.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
+                        .WithMany("Receipts")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CreatedByUser");
 
                     b.Navigation("Supplier");
 
@@ -517,7 +625,7 @@ namespace WMS.Infrastructure.Migrations
             modelBuilder.Entity("WMS.Domain.Entities.ReceiptDetail", b =>
                 {
                     b.HasOne("WMS.Domain.Entities.Product", "Product")
-                        .WithMany()
+                        .WithMany("ReceiptDetails")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -538,6 +646,25 @@ namespace WMS.Infrastructure.Migrations
                     b.Navigation("Receipt");
 
                     b.Navigation("Zone");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.RolePermission", b =>
+                {
+                    b.HasOne("WMS.Domain.Entities.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WMS.Domain.Entities.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("WMS.Domain.Entities.User", b =>
@@ -561,7 +688,7 @@ namespace WMS.Infrastructure.Migrations
             modelBuilder.Entity("WMS.Domain.Entities.Zone", b =>
                 {
                     b.HasOne("WMS.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
+                        .WithMany("Zones")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -574,9 +701,30 @@ namespace WMS.Infrastructure.Migrations
                     b.Navigation("Products");
                 });
 
+            modelBuilder.Entity("WMS.Domain.Entities.Customer", b =>
+                {
+                    b.Navigation("Issues");
+                });
+
             modelBuilder.Entity("WMS.Domain.Entities.Issue", b =>
                 {
                     b.Navigation("IssueDetails");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("Inventories");
+
+                    b.Navigation("InventoryTransactions");
+
+                    b.Navigation("IssueDetails");
+
+                    b.Navigation("ReceiptDetails");
                 });
 
             modelBuilder.Entity("WMS.Domain.Entities.Receipt", b =>
@@ -586,12 +734,34 @@ namespace WMS.Infrastructure.Migrations
 
             modelBuilder.Entity("WMS.Domain.Entities.Role", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.Supplier", b =>
+                {
+                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("WMS.Domain.Entities.Warehouse", b =>
                 {
+                    b.Navigation("Inventories");
+
+                    b.Navigation("Issues");
+
+                    b.Navigation("Receipts");
+
                     b.Navigation("Users");
+
+                    b.Navigation("Zones");
+                });
+
+            modelBuilder.Entity("WMS.Domain.Entities.Zone", b =>
+                {
+                    b.Navigation("Inventories");
+
+                    b.Navigation("InventoryTransactions");
                 });
 #pragma warning restore 612, 618
         }

@@ -14,3 +14,25 @@ export interface PaginatedResponse<T> {
 }
 
 export interface PaginatedApiResponse<T> extends ApiResponse<PaginatedResponse<T>> { }
+
+// OCR Related Types
+export interface OcrItemDto {
+  productId?: string;  // Guid - QA/QC mapping từ dropdown
+  zoneId?: string;     // Guid - QA/QC mapping từ dropdown
+  productName?: string;
+  productNameConfidence?: number;
+  quantity: number;              // Số lượng AI đọc (ExpectedQuantity)
+  actualQuantity?: number;       // Số lượng QA/QC chốt thực tế (ActualQuantity)
+  quantityConfidence?: number;
+  unitPrice: number;
+  unitPriceConfidence?: number;
+}
+
+export interface ReceiptOcrDto {
+    supplierName?: string;
+    supplierNameConfidence?: number;
+    invoiceDate?: string;
+    invoiceDateConfidence?: number;
+    items: OcrItemDto[];
+    suspiciousFields: string[];
+}

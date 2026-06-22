@@ -25,6 +25,9 @@ export const UsersPage: React.FC = () => {
     const [editingUser, setEditingUser] = useState<IUser | null>(null);
     const [form] = Form.useForm();
     const [pwForm] = Form.useForm();
+    // Lắng nghe sự thay đổi của ô Vai trò
+    const selectedRoleId = Form.useWatch('roleId', form);
+    const isAdminSelected = roles.find(r => r.id === selectedRoleId)?.name === 'Admin';
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -138,14 +141,31 @@ export const UsersPage: React.FC = () => {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="roleId" label="Vai trò" rules={[{ required: true, message: 'Chọn vai trò' }]}>
-                                <Select placeholder="Chọn vai trò">
-                                    {roles.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
+                                <Select 
+                                    placeholder="Chọn vai trò"
+                                    onChange={(val) => {
+                                        // Nếu đổi sang Admin thì tự động xóa trắng ô Kho
+                                        const selectedRole = roles.find(r => r.id === val);
+                                        if (selectedRole?.name === 'Admin') {
+                                            form.setFieldsValue({ warehouseId: undefined });
+                                        }
+                                    }}
+                                >
+                                     {roles
+                                        // ✅ Chỉ cho phép chọn 3 role hợp lệ trong hệ thống.
+                                        // Manager đã bị loại bỏ hoàn toàn – KHÔNG được xuất hiện ở đây.
+                                        .filter(r => ['Admin', 'QA_QC', 'Staff'].includes(r.name))
+                                        .map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="warehouseId" label="Kho được gán">
-                                <Select placeholder="Để trống nếu là Admin" allowClear>
+                                <Select 
+                                    placeholder="Để trống nếu là Admin" 
+                                    allowClear
+                                    disabled={isAdminSelected} // Tự động khóa mờ nếu là Admin
+                                >
                                     {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
                                 </Select>
                             </Form.Item>

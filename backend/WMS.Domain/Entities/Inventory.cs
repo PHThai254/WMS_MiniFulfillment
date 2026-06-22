@@ -6,6 +6,7 @@ namespace WMS.Domain.Entities;
         public Guid ProductId { get; set; }
         public int Quantity { get; set; }
         public DateTime LastRestockedDate { get; set; } // Dùng cho thuật toán FIFO
+        public byte[] RowVersion { get; set; } = []; // Concurrency Token - EF Core auto-manages
         
         public Warehouse? Warehouse { get; set; }
         public Zone? Zone { get; set; }

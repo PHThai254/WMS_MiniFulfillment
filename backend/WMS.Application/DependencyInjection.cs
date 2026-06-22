@@ -8,8 +8,8 @@ namespace WMS.Application
     {
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
-            // Auth service stays in Application layer (uses IUserRepository interface)
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IOcrProcessingService, OcrProcessingService>();
             return services;
         }
     }

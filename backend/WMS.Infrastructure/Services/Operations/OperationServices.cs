@@ -10,7 +10,13 @@ namespace WMS.Infrastructure.Services.Operations;
 public class ReceiptService : IReceiptService
 {
     private readonly ApplicationDbContext _db;
-    public ReceiptService(ApplicationDbContext db) => _db = db;
+    private readonly ICompletionCheckService _completionCheckService;
+    
+    public ReceiptService(ApplicationDbContext db, ICompletionCheckService completionCheckService)
+    {
+        _db = db;
+        _completionCheckService = completionCheckService;
+    }
 
     public async Task<List<ReceiptDto>> GetAllAsync() =>
         await _db.Receipts.AsNoTracking()
@@ -40,7 +46,7 @@ public class ReceiptService : IReceiptService
             Id = Guid.NewGuid(),
             WarehouseId = request.WarehouseId,
             SupplierId = request.SupplierId,
-            CreatedBy = createdBy,
+            CreatedByUserId = Guid.TryParse(createdBy, out var uid1) ? uid1 : Guid.Empty,
             Status = ReceiptStatus.Draft,
             CreatedAt = DateTime.UtcNow
         };
@@ -55,7 +61,8 @@ public class ReceiptService : IReceiptService
                 ReceiptId = receipt.Id,
                 ProductId = d.ProductId,
                 ExpectedQuantity = d.ExpectedQuantity,
-                ActualQuantity = 0
+                ActualQuantity = 0,
+                UnitPrice = d.UnitPrice
             });
         }
 
@@ -66,21 +73,31 @@ public class ReceiptService : IReceiptService
 
     public async Task<ReceiptDto> ApproveQcAsync(Guid id, ApproveReceiptRequest request)
     {
-        var receipt = await _db.Receipts.Include(r => r.ReceiptDetails).FirstOrDefaultAsync(r => r.Id == id)
-            ?? throw new KeyNotFoundException("Không tìm thấy phiếu nhập.");
-        if (receipt.Status != ReceiptStatus.Draft)
-            throw new InvalidOperationException("Chỉ có thể duyệt phiếu ở trạng thái Draft.");
-
-        foreach (var upd in request.Details)
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
         {
-            var detail = receipt.ReceiptDetails.FirstOrDefault(d => d.Id == upd.DetailId)
-                ?? throw new ArgumentException($"Không tìm thấy chi tiết {upd.DetailId}.");
-            detail.ActualQuantity = upd.ActualQuantity;
-            detail.ZoneId = upd.ZoneId;
+            var receipt = await _db.Receipts.Include(r => r.ReceiptDetails).FirstOrDefaultAsync(r => r.Id == id)
+                ?? throw new KeyNotFoundException("Không tìm thấy phiếu nhập.");
+            if (receipt.Status != ReceiptStatus.Draft)
+                throw new InvalidOperationException("Chỉ có thể duyệt phiếu ở trạng thái Draft.");
+
+            foreach (var upd in request.Details)
+            {
+                var detail = receipt.ReceiptDetails.FirstOrDefault(d => d.Id == upd.DetailId)
+                    ?? throw new ArgumentException($"Không tìm thấy chi tiết {upd.DetailId}.");
+                detail.ActualQuantity = upd.ActualQuantity;
+                detail.ZoneId = upd.ZoneId;
+            }
+            receipt.Status = ReceiptStatus.QC_Checked;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return (await GetByIdAsync(receipt.Id))!;
         }
-        receipt.Status = ReceiptStatus.QC_Checked;
-        await _db.SaveChangesAsync();
-        return (await GetByIdAsync(receipt.Id))!;
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<ReceiptDto> ApproveOcrAsync(Guid id, ApproveOcrRequest request)
@@ -173,7 +190,7 @@ public class ReceiptService : IReceiptService
                     ProductId = d.ProductId,
                     ZoneId = d.ZoneId!.Value,
                     QuantityChange = d.ActualQuantity,
-                    TransactionType = "INBOUND",
+                    TransactionType = TransactionType.Inbound,
                     ReferenceId = receipt.Id,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -181,36 +198,161 @@ public class ReceiptService : IReceiptService
             receipt.Status = ReceiptStatus.Completed;
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
+            
+            // Tự động kiểm tra và chuyển sang Completed nếu đủ hàng
+            await _completionCheckService.CheckAndCompleteReceiptAsync(receipt.Id);
+            
             return (await GetByIdAsync(receipt.Id))!;
         }
         catch { await tx.RollbackAsync(); throw; }
     }
 
     public async Task<OcrResultDto> RunOcrAsync(Stream imageStream, string fileName)
+{
+    await Task.Delay(500);
+    var items = new List<OcrLineItemDto>
     {
-        await Task.Delay(500);
-        var items = new List<OcrLineItemDto>
+        // 📌 Bổ sung thêm giá tiền (VD: 150000m và 50000m) vào vị trí thứ 3
+        new("Sản phẩm mẫu A", 100, 150000m, false),
+        new("Sản phẩm mẫu B", 50, 50000m, true)
+    };
+    
+    // Cập nhật lại chuỗi JSON giả lập cho khớp thực tế
+    string mockJson = "{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100,\"price\":150000},{\"name\":\"Sản phẩm mẫu B\",\"qty\":50,\"price\":50000}]}";
+    
+    return new OcrResultDto(mockJson, items, true);
+}
+
+    /// <summary>
+    /// Lưu Receipt từ dữ liệu OCR đã được QA/QC duyệt
+    /// Tạo phiếu nhập mới với các chi tiết được cấp phát vào Zone cụ thể
+    /// </summary>
+    public async Task<Guid> SaveReceiptFromOcrAsync(SaveOcrReceiptRequest request, string createdBy)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
         {
-            new("Sản phẩm mẫu A", 100, false),
-            new("Sản phẩm mẫu B", 50, true)
-        };
-        return new OcrResultDto("{\"items\":[{\"name\":\"Sản phẩm mẫu A\",\"qty\":100}]}", items, true);
+            // Kiểm tra Supplier
+            if (!await _db.Suppliers.AnyAsync(s => s.Id == request.SupplierId))
+                throw new ArgumentException("Nhà cung cấp không tồn tại.");
+
+            // Kiểm tra tất cả Products và Zones tồn tại
+            foreach (var item in request.Items)
+            {
+                if (!await _db.Products.AnyAsync(p => p.Id == item.ProductId))
+                    throw new ArgumentException($"Sản phẩm {item.ProductId} không tồn tại.");
+
+                if (!await _db.Zones.AnyAsync(z => z.Id == item.ZoneId))
+                    throw new ArgumentException($"Zone {item.ZoneId} không tồn tại.");
+            }
+
+            // Lấy WarehouseId từ User Context (được set qua JWT Token)
+            // Giả sử WarehouseId được lấy từ request hoặc context - ở đây tạm lấy từ Zone
+            var zone = await _db.Zones.FirstAsync(z => z.Id == request.Items.First().ZoneId);
+            var warehouseId = zone.WarehouseId;
+
+            // Tạo phiếu nhập mới
+            var receipt = new Receipt
+            {
+                Id = Guid.NewGuid(),
+                WarehouseId = warehouseId,
+                SupplierId = request.SupplierId,
+                CreatedByUserId = Guid.TryParse(createdBy, out var uid2) ? uid2 : Guid.Empty,
+                Status = ReceiptStatus.QC_Checked, // Trực tiếp set thành QC_Checked vì đã duyệt
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Thêm chi tiết từ OCR - mapping chuẩn Expected vs Actual
+            foreach (var item in request.Items)
+            {
+                receipt.ReceiptDetails.Add(new ReceiptDetail
+                {
+                    Id = Guid.NewGuid(),
+                    ReceiptId = receipt.Id,
+                    ProductId = item.ProductId,
+                    ZoneId = item.ZoneId,
+                    ExpectedQuantity = item.ExpectedQuantity, // Số AI đọc được
+                    ActualQuantity = item.ActualQuantity,     // Số QA/QC chốt thực tế
+                    UnitPrice = item.UnitPrice
+                });
+            }
+
+            _db.Receipts.Add(receipt);
+            await _db.SaveChangesAsync();
+
+            // Cập nhật tồn kho ngay lập tức (vì đã duyệt)
+            foreach (var item in request.Items)
+            {
+                var inventory = await _db.Inventories.FirstOrDefaultAsync(i =>
+                    i.WarehouseId == warehouseId &&
+                    i.ZoneId == item.ZoneId &&
+                    i.ProductId == item.ProductId);
+
+                if (inventory == null)
+                {
+                    _db.Inventories.Add(new Inventory
+                    {
+                        Id = Guid.NewGuid(),
+                        WarehouseId = warehouseId,
+                        ZoneId = item.ZoneId,
+                        ProductId = item.ProductId,
+                        Quantity = item.ActualQuantity, // Dùng ActualQuantity (QA/QC chốt)
+                        LastRestockedDate = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    inventory.Quantity += item.ActualQuantity; // Cộng theo số thực tế
+                    inventory.LastRestockedDate = DateTime.UtcNow;
+                }
+
+                // Ghi log giao dịch (dùng ActualQuantity - số QA/QC đã chốt)
+                _db.InventoryTransactions.Add(new InventoryTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = item.ProductId,
+                    ZoneId = item.ZoneId,
+                    QuantityChange = item.ActualQuantity, // Cập nhật tồn kho theo số thực tế
+                    TransactionType = TransactionType.Inbound,
+                    ReferenceId = receipt.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            // Update Receipt status thành Completed
+            receipt.Status = ReceiptStatus.Completed;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return receipt.Id; // Return receipt identifier
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     private static ReceiptDto MapToDto(Receipt r) => new(
         r.Id, r.WarehouseId, r.Warehouse?.Name ?? string.Empty,
-        r.SupplierId, r.Supplier?.Name, r.CreatedBy, r.Status, r.CreatedAt,
+        r.SupplierId, r.Supplier?.Name, r.CreatedByUserId, r.CreatedByUser?.Username, r.Status, r.CreatedAt,
         r.ReceiptDetails.Select(d => new ReceiptDetailDto(
             d.Id, d.ReceiptId, d.ProductId,
             d.Product?.Name ?? string.Empty, d.Product?.Barcode ?? string.Empty,
-            d.ZoneId, d.Zone?.Name, d.ExpectedQuantity, d.ActualQuantity)).ToList()
+            d.ZoneId, d.Zone?.Name, d.ExpectedQuantity, d.ActualQuantity, d.UnitPrice)).ToList()
     );
 }
 
 public class IssueService : IIssueService
 {
     private readonly ApplicationDbContext _db;
-    public IssueService(ApplicationDbContext db) => _db = db;
+    private readonly ICompletionCheckService _completionCheckService;
+    
+    public IssueService(ApplicationDbContext db, ICompletionCheckService completionCheckService)
+    {
+        _db = db;
+        _completionCheckService = completionCheckService;
+    }
 
     public async Task<List<IssueDto>> GetAllAsync() =>
         await _db.Issues.AsNoTracking()
@@ -240,7 +382,7 @@ public class IssueService : IIssueService
             Id = Guid.NewGuid(),
             WarehouseId = request.WarehouseId,
             CustomerId = request.CustomerId,
-            CreatedBy = createdBy,
+            CreatedByUserId = Guid.TryParse(createdBy, out var uid3) ? uid3 : Guid.Empty,
             Status = IssueStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -329,7 +471,7 @@ public class IssueService : IIssueService
                 ProductId = detail.ProductId,
                 ZoneId = detail.ZoneId ?? Guid.Empty,
                 QuantityChange = -request.PickedQuantity,
-                TransactionType = "OUTBOUND",
+                TransactionType = TransactionType.Outbound,
                 ReferenceId = issue.Id,
                 CreatedAt = DateTime.UtcNow
             });
@@ -339,6 +481,10 @@ public class IssueService : IIssueService
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
+            
+            // Tự động kiểm tra và chuyển sang Handover nếu hết hàng
+            await _completionCheckService.CheckAndCompleteIssueAsync(issue.Id);
+            
             return (await GetByIdAsync(issue.Id))!;
         }
         catch { await tx.RollbackAsync(); throw; }
@@ -346,16 +492,26 @@ public class IssueService : IIssueService
 
     public async Task<IssueDto> HandoverAsync(Guid issueId)
     {
-        var issue = await _db.Issues.FirstOrDefaultAsync(i => i.Id == issueId)
-            ?? throw new KeyNotFoundException("Không tìm thấy phiếu xuất.");
-        issue.Status = IssueStatus.Handover;
-        await _db.SaveChangesAsync();
-        return (await GetByIdAsync(issue.Id))!;
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var issue = await _db.Issues.FirstOrDefaultAsync(i => i.Id == issueId)
+                ?? throw new KeyNotFoundException("Không tìm thấy phiếu xuất.");
+            issue.Status = IssueStatus.Handover;
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return (await GetByIdAsync(issue.Id))!;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     private static IssueDto MapToDto(Issue i) => new(
         i.Id, i.WarehouseId, i.Warehouse?.Name ?? string.Empty,
-        i.CustomerId, i.Customer?.Name, i.CreatedBy, i.Status, i.CreatedAt,
+        i.CustomerId, i.Customer?.Name, i.CreatedByUserId, i.CreatedByUser?.Username, i.Status, i.CreatedAt,
         i.IssueDetails.Select(d => new IssueDetailDto(
             d.Id, d.IssueId, d.ProductId, d.Product?.Name ?? string.Empty, d.Product?.Barcode ?? string.Empty,
             d.ZoneId, d.Zone?.Name, d.QuantityToPick, d.PickedQuantity)).ToList()

@@ -6,6 +6,7 @@ import { CameraComponent } from './CameraView';
 import { ScannerHeader } from './ScannerHeader';
 import { ScannerButton } from './ScannerButton';
 import { useBarcodeScan } from '../di/hooks/useBarcodeScan';
+import { inventoryService } from '../infrastructure/inventoryService';
 
 type PutAwayStep = 'product' | 'zone' | 'quantity';
 
@@ -17,6 +18,7 @@ interface PutAwayState {
 }
 
 interface PutAwayScannerProps {
+  receiptId?: string; // ID của Receipt đã được QA_QC duyệt - cần để gọi API put-away
   onSubmit?: (data: {
     productBarcode: string;
     zoneBarcode: string;
@@ -24,13 +26,15 @@ interface PutAwayScannerProps {
   }) => void;
 }
 
-export const PutAwayScanner: React.FC<PutAwayScannerProps> = ({ onSubmit }) => {
+export const PutAwayScanner: React.FC<PutAwayScannerProps> = ({ receiptId, onSubmit }) => {
   const [state, setState] = useState<PutAwayState>({
     step: 'product',
     productBarcode: null,
     zoneBarcode: null,
     quantity: 1,
   });
+  // ✅ State kiểm soát trạng thái đang gửi API (tránh double-submit)
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { handleBarcodeScan, isScanning } = useBarcodeScan({
     onScan: (result) => handleScan(result.barcode),
@@ -52,25 +56,57 @@ export const PutAwayScanner: React.FC<PutAwayScannerProps> = ({ onSubmit }) => {
     setState(s => ({ ...s, quantity: Math.max(s.quantity - 1, 1) }));
   };
 
-  const handleConfirm = () => {
+  // ✅ handleConfirm: Gọi API hoàn tất cất hàng
+  // Route: POST /api/Receipts/{receiptId}/complete-putaway
+  // Backend cộng Inventory cho từng ReceiptDetail, ghi INBOUND transaction, chuyển Receipt → Completed
+  const handleConfirm = async () => {
     if (!state.productBarcode || !state.zoneBarcode) {
       Alert.alert('Lỗi', 'Vui lòng hoàn thành tất cả bước quét');
       return;
     }
 
-    onSubmit?.({
-      productBarcode: state.productBarcode,
-      zoneBarcode: state.zoneBarcode,
-      quantity: state.quantity,
-    });
+    if (isSubmitting) return; // Chặn double-submit
+    setIsSubmitting(true);
 
-    // Reset form
-    setState({
-      step: 'product',
-      productBarcode: null,
-      zoneBarcode: null,
-      quantity: 1,
-    });
+    try {
+      if (receiptId) {
+        // Có receiptId: gọi API đúng để backend xử lý tồn kho
+        const res = await inventoryService.completePutAway(receiptId);
+        if (res?.success) {
+          Alert.alert(
+            '✅ Cất hàng thành công',
+            `Đã cất ${state.quantity} sản phẩm vào zone ${state.zoneBarcode}.`,
+            [{ text: 'OK' }]
+          );
+          onSubmit?.({
+            productBarcode: state.productBarcode!,
+            zoneBarcode: state.zoneBarcode!,
+            quantity: state.quantity,
+          });
+          setState({ step: 'product', productBarcode: null, zoneBarcode: null, quantity: 1 });
+        } else {
+          Alert.alert('❌ Lỗi', res?.message || 'Cất hàng thất bại. Thử lại.');
+        }
+      } else {
+        // Không có receiptId: chỉ gọi callback UI (demo mode, chưa có phiếu nhập)
+        Alert.alert(
+          '✅ Đã ghi nhận',
+          `${state.quantity} sản phẩm được xác nhận. Liên hệ Admin để gán phiếu nhập.`,
+          [{ text: 'OK' }]
+        );
+        onSubmit?.({
+          productBarcode: state.productBarcode!,
+          zoneBarcode: state.zoneBarcode!,
+          quantity: state.quantity,
+        });
+        setState({ step: 'product', productBarcode: null, zoneBarcode: null, quantity: 1 });
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Không thể kết nối máy chủ.';
+      Alert.alert('❌ Lỗi kết nối', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -169,6 +205,7 @@ export const PutAwayScanner: React.FC<PutAwayScannerProps> = ({ onSubmit }) => {
         <View style={styles.buttonGroup}>
           <ScannerButton 
             onPress={handleConfirm}
+            disabled={isSubmitting}
             style={styles.confirmBtn}
           >
             ✓ Xác nhận

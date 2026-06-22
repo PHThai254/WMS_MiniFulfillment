@@ -1,5 +1,6 @@
 // mobile-app/src/presentation/navigation/MainTabs.tsx
 import {PickingScanner} from '../../components/PickingScanner'; 
+import {PutAwayScanner} from '../../components/PutAwayScanner'; // ✅ Staff cất hàng
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,7 +32,7 @@ export const MainTabs = () => {
       }}
     >
       <Tab.Screen
-        name="HomeTab"
+        name="Home"
         component={HomeScreen}
         options={{
           title: 'Trang chủ',
@@ -42,7 +43,7 @@ export const MainTabs = () => {
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
+        name="Profile"
         component={ProfileScreen}
         options={{
           title: 'Tài khoản',
@@ -53,7 +54,7 @@ export const MainTabs = () => {
         }}
       />
       <Tab.Screen
-        name="SettingsTab"
+        name="Settings"
         component={SettingsScreen}
         options={{
           title: 'Cài đặt',
@@ -67,9 +68,22 @@ export const MainTabs = () => {
         name="Scanner" 
         component={PickingScanner} 
         options={{ 
-            title: 'Quét Mã', 
+            title: 'Nhặt Hàng', 
+            tabBarLabel: 'Nhặt Hàng',
             tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="barcode-scan" color={color} size={size} />
+            ),
+        }} 
+        />
+      {/* ✅ Tab Cất Hàng: Dành cho Staff thực hiện Put-away sau khi QA_QC duyệt phiếu nhập */}
+      <Tab.Screen 
+        name="PutAway" 
+        component={PutAwayScanner} 
+        options={{ 
+            title: 'Cất Hàng', 
+            tabBarLabel: 'Cất Hàng',
+            tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="package-down" color={color} size={size} />
             ),
         }} 
         />

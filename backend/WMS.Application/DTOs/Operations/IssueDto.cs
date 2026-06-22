@@ -7,7 +7,8 @@ public record IssueDto(
     string WarehouseName,
     Guid? CustomerId,
     string? CustomerName,
-    string CreatedBy,
+    Guid CreatedByUserId,
+    string? CreatedByUsername,
     IssueStatus Status,
     DateTime CreatedAt,
     List<IssueDetailDto> IssueDetails
