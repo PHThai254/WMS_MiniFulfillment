@@ -19,7 +19,9 @@ import { useNetInfo } from "@react-native-community/netinfo";
 import { Provider as PaperProvider } from "react-native-paper";
 import { authEventEmitter } from "./src/di/authEvents";
 import { AuthProvider, useAuth } from "./src/presentation/context/AuthContext";
+import { OfflineQueueProvider } from "./src/presentation/context/OfflineQueueContext";
 import { RootNavigator } from "./src/presentation/navigation/RootNavigator";
+import { OfflineIndicator } from "./src/components/OfflineIndicator";
 import {
   getPendingScanActions,
   processPendingScanActions,
@@ -102,6 +104,7 @@ const RootApp = () => {
           <Text style={styles.bannerText}>{bannerText}</Text>
         </View>
       )}
+      <OfflineIndicator />
       <NavigationContainer ref={navigationRef}>
         <RootNavigator />
       </NavigationContainer>
@@ -135,9 +138,11 @@ const styles = StyleSheet.create({
 function App() {
   return (
     <PaperProvider>
-      <AuthProvider>
-        <RootApp />
-      </AuthProvider>
+      <OfflineQueueProvider>
+        <AuthProvider>
+          <RootApp />
+        </AuthProvider>
+      </OfflineQueueProvider>
     </PaperProvider>
   );
 }
