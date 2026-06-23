@@ -218,6 +218,68 @@ public class IssuesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// [POST] api/Issues/{id}/confirm-picking-batch
+    /// Xác nhận số lượng thực lấy cho TOÀN BỘ phiếu xuất trong 1 lần gọi (batch confirm).
+    ///
+    /// Request Body: ConfirmPickingRequestDto
+    ///   - IssueId: Guid (phải khớp với {id} trên URL)
+    ///   - PickedItems: [ { ProductId, ActualQuantity }, ... ]
+    ///
+    /// HTTP Status:
+    ///   200 OK         → Tất cả hàng đã xác nhận thành công, tồn kho đã trừ an toàn.
+    ///   400 BadRequest → Lỗi nghiệp vụ: âm kho, sai trạng thái, input không hợp lệ.
+    ///   404 NotFound   → Không tìm thấy phiếu xuất.
+    ///   409 Conflict   → Xung đột concurrency (RowVersion thay đổi giữa chừng).
+    ///   500 Internal   → Lỗi hệ thống không mong muốn.
+    /// </summary>
+    [HttpPost("{id:guid}/confirm-picking-batch")]
+    [Authorize(Policy = "confirm_pick")]
+    public async Task<ActionResult<ApiResponse<IssueDto>>> ConfirmPickingBatch(
+        Guid id,
+        [FromBody] ConfirmPickingRequestDto request)
+    {
+        // Guard: IssueId trong body phải khớp với {id} trên URL để tránh nhầm lẫn
+        if (request.IssueId != id)
+            return BadRequest(ApiResponse<IssueDto>.Failed(
+                $"IssueId trong body ({request.IssueId}) không khớp với Id trên URL ({id})."));
+
+        try
+        {
+            var data = await _service.ConfirmPickingBatchAsync(request);
+            return Ok(ApiResponse<IssueDto>.Succeeded(data,
+                "Xác nhận nhặt hàng thành công. Tồn kho đã được trừ an toàn."));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            // 404: Phiếu xuất không tồn tại
+            return NotFound(ApiResponse<IssueDto>.Failed(ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            // 400: Lỗi nghiệp vụ - tồn kho không đủ hoặc sai trạng thái phiếu
+            return BadRequest(ApiResponse<IssueDto>.Failed(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            // 400: Dữ liệu đầu vào không hợp lệ (ProductId không có trong phiếu, trùng lặp, ...)
+            return BadRequest(ApiResponse<IssueDto>.Failed(ex.Message));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // 409: Xung đột concurrency - RowVersion của Inventory thay đổi giữa chừng
+            return Conflict(ApiResponse<IssueDto>.Failed(
+                "Tồn kho đã được thay đổi bởi tiến trình khác trong khi xử lý. " +
+                "Giao dịch đã được hủy bỏ. Vui lòng tải lại dữ liệu và thử lại."));
+        }
+        catch (Exception ex)
+        {
+            // 500: Lỗi hệ thống không mong muốn
+            return StatusCode(500, ApiResponse<IssueDto>.Failed(
+                $"Lỗi hệ thống khi xác nhận nhặt hàng: {ex.Message}"));
+        }
+    }
+
     [HttpPost("{id:guid}/handover")]
     [Authorize(Policy = "handover_issue")]
     public async Task<ActionResult<ApiResponse<IssueDto>>> Handover(Guid id)

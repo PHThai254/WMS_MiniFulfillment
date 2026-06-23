@@ -525,6 +525,142 @@ public class IssueService : IIssueService
         catch { await tx.RollbackAsync(); throw; }
     }
 
+    /// <summary>
+    /// Xác nhận toàn bộ số lượng thực lấy cho 1 phiếu xuất (batch confirm).
+    /// ─────────────────────────────────────────────────────────────────────
+    /// LUỒNG XỬ LÝ:
+    ///   1. Validate: phiếu tồn tại, đang ở trạng thái Picking.
+    ///   2. Validate input: ActualQuantity > 0, không trùng ProductId.
+    ///   3. Mở IDbContextTransaction (ACID).
+    ///   4. Với mỗi PickedItem:
+    ///      a. Tìm IssueDetail khớp ProductId.
+    ///      b. Tìm Inventory theo ProductId + WarehouseId (FIFO: cũ nhất trước).
+    ///      c. Nếu tồn kho < ActualQuantity → Rollback + throw 400.
+    ///      d. Trừ Inventory.Quantity theo FIFO, tăng IssueDetail.PickedQuantity.
+    ///      e. Ghi InventoryTransaction (Outbound, QuantityChange âm).
+    ///   5. Nếu tất cả IssueDetail đã pick đủ → Issue.Status = Picked.
+    ///   6. Commit transaction.
+    /// ─────────────────────────────────────────────────────────────────────
+    /// CONCURRENCY: Inventory.RowVersion là Concurrency Token → EF Core tự
+    /// throw DbUpdateConcurrencyException nếu 2 request cùng trừ kho 1 lúc.
+    /// Controller bắt exception này và trả về 409 Conflict.
+    /// </summary>
+    public async Task<IssueDto> ConfirmPickingBatchAsync(ConfirmPickingRequestDto request)
+    {
+        // ── 1. Validate: phiếu tồn tại ──────────────────────────────────────
+        var issue = await _db.Issues
+            .Include(i => i.IssueDetails)
+            .FirstOrDefaultAsync(i => i.Id == request.IssueId)
+            ?? throw new KeyNotFoundException($"Không tìm thấy phiếu xuất với Id = {request.IssueId}.");
+
+        // Chỉ cho phép confirm khi phiếu đang ở trạng thái Picking
+        if (issue.Status != IssueStatus.Picking)
+            throw new InvalidOperationException(
+                $"Phiếu xuất đang ở trạng thái '{issue.Status}'. Chỉ có thể xác nhận nhặt hàng khi phiếu ở trạng thái 'Picking'.");
+
+        // ── 2. Validate input ─────────────────────────────────────────────────
+        if (request.PickedItems == null || request.PickedItems.Count == 0)
+            throw new ArgumentException("Danh sách PickedItems không được để trống.");
+
+        // Không cho phép ActualQuantity <= 0
+        var invalidItems = request.PickedItems.Where(p => p.ActualQuantity <= 0).ToList();
+        if (invalidItems.Any())
+            throw new ArgumentException(
+                $"ActualQuantity phải lớn hơn 0. Các ProductId vi phạm: {string.Join(", ", invalidItems.Select(i => i.ProductId))}");
+
+        // Không cho phép trùng ProductId trong cùng 1 request
+        var duplicateProductIds = request.PickedItems
+            .GroupBy(p => p.ProductId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicateProductIds.Any())
+            throw new ArgumentException(
+                $"Danh sách PickedItems có ProductId bị trùng lặp: {string.Join(", ", duplicateProductIds)}");
+
+        // ── 3. Mở Transaction (ACID) ──────────────────────────────────────────
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            foreach (var pickedItem in request.PickedItems)
+            {
+                // ── 4a. Tìm IssueDetail khớp ProductId ───────────────────────
+                var detail = issue.IssueDetails.FirstOrDefault(d => d.ProductId == pickedItem.ProductId)
+                    ?? throw new ArgumentException(
+                        $"Sản phẩm {pickedItem.ProductId} không có trong phiếu xuất này.");
+
+                // ── 4b. Tìm Inventory theo FIFO (cũ nhất trước) ──────────────
+                var inventorySlots = await _db.Inventories
+                    .Where(i => i.ProductId == pickedItem.ProductId
+                             && i.WarehouseId == issue.WarehouseId
+                             && i.Quantity > 0)
+                    .OrderBy(i => i.LastRestockedDate)   // FIFO: hàng nhập cũ nhất lấy trước
+                    .ToListAsync();
+
+                int totalAvailable = inventorySlots.Sum(i => i.Quantity);
+
+                // ── 4c. Kiểm tra đủ hàng – TUYỆT ĐỐI không để âm kho ────────
+                if (totalAvailable < pickedItem.ActualQuantity)
+                {
+                    await tx.RollbackAsync();
+                    throw new InvalidOperationException(
+                        $"Tồn kho không đủ cho sản phẩm {pickedItem.ProductId}. " +
+                        $"Cần: {pickedItem.ActualQuantity}, Hiện còn: {totalAvailable}. " +
+                        $"Giao dịch đã bị hủy bỏ toàn bộ.");
+                }
+
+                // ── 4d. Trừ kho theo FIFO (trừ hết slot cũ trước, rồi sang slot tiếp theo) ──
+                int remaining = pickedItem.ActualQuantity;
+                foreach (var slot in inventorySlots)
+                {
+                    if (remaining <= 0) break;
+
+                    int deduct = Math.Min(slot.Quantity, remaining);
+                    slot.Quantity -= deduct;
+                    remaining -= deduct;
+
+                    // ── 4e. Ghi InventoryTransaction cho từng slot bị trừ ─────
+                    _db.InventoryTransactions.Add(new InventoryTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductId = pickedItem.ProductId,
+                        ZoneId = slot.ZoneId,
+                        QuantityChange = -deduct,                    // Âm = xuất kho
+                        TransactionType = TransactionType.Outbound,
+                        ReferenceId = issue.Id,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+
+                // Cập nhật số lượng đã lấy thực tế trên dòng phiếu
+                detail.PickedQuantity += pickedItem.ActualQuantity;
+            }
+
+            // ── 5. Kiểm tra toàn bộ phiếu đã pick đủ chưa ───────────────────
+            bool allPicked = issue.IssueDetails.All(d => d.PickedQuantity >= d.QuantityToPick);
+            if (allPicked)
+                issue.Status = IssueStatus.Picked;   // "Đã nhặt hàng" - chờ bàn giao
+
+            issue.UpdatedAt = DateTime.UtcNow;
+
+            // ── 6. Commit ─────────────────────────────────────────────────────
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return (await GetByIdAsync(issue.Id))!;
+        }
+        catch (InvalidOperationException)
+        {
+            // Lỗi nghiệp vụ (âm kho): đã Rollback bên trong, ném lại để Controller xử lý
+            throw;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<IssueDto> HandoverAsync(Guid issueId)
     {
         await using var tx = await _db.Database.BeginTransactionAsync();
