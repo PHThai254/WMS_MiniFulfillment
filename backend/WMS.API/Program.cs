@@ -9,6 +9,12 @@ using WMS.Infrastructure.Data;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+Console.WriteLine("===== DEBUG CONFIG =====");
+Console.WriteLine($"Environment = {builder.Environment.EnvironmentName}");
+Console.WriteLine($"ContentRoot = {builder.Environment.ContentRootPath}");
+Console.WriteLine($"Jwt:Key = '{builder.Configuration["Jwt:Key"]}'");
+Console.WriteLine($"Jwt:Issuer = '{builder.Configuration["Jwt:Issuer"]}'");
+Console.WriteLine("========================");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

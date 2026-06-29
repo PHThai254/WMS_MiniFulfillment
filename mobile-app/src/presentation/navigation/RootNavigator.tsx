@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+
 import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -45,7 +46,11 @@ const AppStack = () => (
     />
   </RootStack.Navigator>
 );
+import { PickingListScreen } from '../pages/PickingList';
+import { PickingDetailScreen } from '../pages/PickingDetail';
+import { PutAwayScreen } from '../pages/PutAway';
 
+const Stack = createNativeStackNavigator();
 /**
  * UnauthorizedScreen - Hiển thị khi user đã đăng nhập nhưng không có quyền dùng app mobile.
  * Đây là lớp bảo vệ thứ 2 (lớp 1 ở Login.tsx), xử lý edge case khi token cũ được restore.
@@ -97,4 +102,15 @@ export const RootNavigator = () => {
   return isSignedIn ? <MainTabs /> : <AuthStack />;
 
   return isSignedIn ? <AppStack /> : <AuthStack />;
+  return isSignedIn ? (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen name="PickingList" component={PickingListScreen} />
+      <Stack.Screen name="PickingDetail" component={PickingDetailScreen} />
+      <Stack.Screen name="PutAway" component={PutAwayScreen} />
+    </Stack.Navigator>
+  ) : (
+    <AuthStack />
+  );
+};
 

@@ -8,6 +8,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Screens
 import { HomeScreen } from '../pages/Home';
+import { ReceiptsListScreen } from '../pages/ReceiptsList';
+import { IssuesListScreen } from '../pages/IssuesList';
 import { ProfileScreen } from '../pages/Profile';
 import { SettingsScreen } from '../pages/Setting';
 import { PutAwayDetailScreen } from '../pages/PutAwayDetail';
@@ -85,9 +87,13 @@ export const MainTabs = () => {
           paddingBottom: 8,
         },
         tabBarLabelStyle: {
+
           fontSize: 12,
           fontWeight: '600',
->>>>>>> 4e2e726 (hoàn thiện Put-Away, picking FIFO)
+          fontSize: 11,
+          fontWeight: '600',
+          marginBottom: 4,
+
         },
       }}
     >
@@ -96,8 +102,14 @@ export const MainTabs = () => {
         name="HomeStack"
         component={HomeStackScreen}
         options={{
+
           title: 'Danh Sách',
           tabBarLabel: 'Danh Sách',
+
+          headerShown: false, // Home has its own header
+          title: 'Trang chủ',
+          tabBarLabel: 'Trang chủ',
+
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" color={color} size={size} />
           ),
@@ -123,13 +135,28 @@ export const MainTabs = () => {
 
       {/* 👤 PROFILE TAB */}
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="ReceiptsListTab"
+        component={ReceiptsListScreen}
         options={{
+
           title: 'Tài Khoản',
           tabBarLabel: 'Tài Khoản',
+
+          title: 'Phiếu Nhập',
+          tabBarLabel: 'Phiếu Nhập',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" color={color} size={size} />
+            <MaterialCommunityIcons name="package-down" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="IssuesListTab"
+        component={IssuesListScreen}
+        options={{
+          title: 'Phiếu Xuất',
+          tabBarLabel: 'Phiếu Xuất',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="package-up" color={color} size={size} />
           ),
         }}
       />
@@ -146,6 +173,19 @@ export const MainTabs = () => {
           ),
         }}
       />
+
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Tài khoản',
+          tabBarLabel: 'Tài khoản',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account" color={color} size={size} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 };
+

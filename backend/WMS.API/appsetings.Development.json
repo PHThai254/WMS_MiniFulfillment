@@ -1,0 +1,34 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=tcp:sql-ducanh-wms.database.windows.net,1433;Initial Catalog=wms;Persist Security Info=False;User ID=wmsadmin;Password=azure@KZ04;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+  },
+  "Jwt": {
+    "Key": "DayLaChuoiBaoMatSieuCapVipCuaThai2026",
+    "Issuer": "WMS_API",
+    "Audience": "WMS_Client",
+    "AccessTokenExpirationMinutes": 15,
+    "RefreshTokenExpirationDays": 7
+  },
+  "FileStorage": {
+    "MaxFileSize": 5242880,
+    "AllowedExtensions": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".webp"
+    ],
+    "UploadFolder": "uploads"
+  },
+  "Gemini": {
+    "ApiKey": "",
+    "BaseUrl": "https://generativelanguage.googleapis.com"
+  }
+}
