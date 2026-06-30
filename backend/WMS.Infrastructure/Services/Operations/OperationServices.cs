@@ -195,7 +195,7 @@ public class ReceiptService : IReceiptService
                     CreatedAt = DateTime.UtcNow
                 });
             }
-            receipt.Status = ReceiptStatus.Completed;
+            // Xóa gán cứng Completed ở đây để nhường cho CompletionCheckService tự kiểm tra và chuyển trạng thái
             await _db.SaveChangesAsync();
             await tx.CommitAsync();
             
@@ -476,8 +476,7 @@ public class IssueService : IIssueService
                 CreatedAt = DateTime.UtcNow
             });
 
-            if (issue.IssueDetails.All(d => d.PickedQuantity >= d.QuantityToPick))
-                issue.Status = IssueStatus.Handover;
+            // Nhường việc kiểm tra và chuyển trạng thái Handover cho CompletionCheckService
 
             await _db.SaveChangesAsync();
             await tx.CommitAsync();

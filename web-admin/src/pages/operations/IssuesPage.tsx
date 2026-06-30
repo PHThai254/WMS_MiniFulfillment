@@ -71,7 +71,7 @@ export const IssuesPage: React.FC = () => {
     }, [fetchIssues]);
 
     useEffect(() => {
-        Promise.all([warehouseService.list(), customerService.list(), productService.list()])
+        Promise.all([warehouseService.list(true), customerService.list(), productService.list(undefined, undefined)])
             .then(([wRes, cRes, pRes]) => {
                 if (wRes?.success) setWarehouses(wRes.data || []);
                 if (cRes?.success) setCustomers(cRes.data || []);
@@ -294,7 +294,7 @@ export const IssuesPage: React.FC = () => {
                             rowKey="id"
                             pagination={false}
                         />
-                        {selectedIssue.status === 'Picking' && (
+                        {selectedIssue.status === 'Handover' && (
                             <Button type="primary" danger icon={<CarOutlined />} loading={handoverLoading}
                                 style={{ marginTop: 16 }} onClick={() => handleHandover(selectedIssue.id)}>
                                 Bàn giao vận chuyển

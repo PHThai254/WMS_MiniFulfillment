@@ -43,8 +43,8 @@ export const InventoryPage: React.FC = () => {
                 inventoryService.list({ pageIndex: invPage, pageSize: 20, warehouseId: filterWarehouse, zoneId: filterZone }),
                 inventoryService.stockSummary(),
                 inventoryService.transactions(txPage, 50),
-                warehouseService.list(),
-                zoneService.list(),
+                warehouseService.list(true),
+                zoneService.list(undefined, true),
             ]);
             if (invRes?.success) {
                 setInventory(invRes.data?.items || []);

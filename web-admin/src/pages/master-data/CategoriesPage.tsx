@@ -19,7 +19,8 @@ export const CategoriesPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await categoryService.list();
+            // Ép buộc tải lại dữ liệu mới nhất từ Server (bỏ qua cache) để thấy số lượng sản phẩm realtime
+            const res = await categoryService.list(true);
             if (res?.success) setCategories(res.data || []);
         } catch { message.error('Không thể tải danh mục.'); }
         finally { setLoading(false); }

@@ -209,48 +209,73 @@ public static class DbInitializer
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // STEP 5: Master Data (Products, Categories, v.v.)
+    // STEP 5: Master Data (Products, Categories, v.v.) - Đồ Điện Tử
     // ══════════════════════════════════════════════════════════════════════════
     private static async Task EnsureMasterDataAsync(ApplicationDbContext context)
     {
-        if (await context.Products.AnyAsync()) return;
+        // Kiểm tra xem đã có dữ liệu xịn chưa (chứa chữ iPhone)
+        if (await context.Products.AnyAsync(p => p.Name.Contains("iPhone"))) return;
 
-        var categoryNames = new[]
-        {
-            "Đồ điện gia dụng", "Thiết bị nhà bếp", "Dụng cụ vệ sinh",
-            "Thực phẩm đóng gói", "Đồ uống", "Gia vị", "Hóa mỹ phẩm"
-        };
-
-        var productNames = new[]
-        {
-            // Đồ gia dụng
-            "Nồi cơm điện Sunhouse 1.8L", "Lò vi sóng Sharp 20L", "Bếp từ đôi Kangaroo",
-            "Quạt đứng Senko", "Ấm siêu tốc Philips 1.5L", "Máy xay sinh tố Panasonic",
-            "Chảo chống dính Elmich", "Cây lau nhà 360 độ",
-            // FMCG
-            "Thùng 30 gói mì Hảo Hảo", "Nước mắm Nam Ngư 750ml", "Dầu ăn Tường An 1L",
-            "Lốc 4 hộp sữa Vinamilk 180ml", "Nước giặt OMO Matic 3.6kg", "Thùng 24 lon Coca-Cola",
-            "Nước rửa chén Sunlight", "Dầu gội Clear Men 630g"
-        };
-
-        var categoryFaker = new Faker<Category>()
-            .RuleFor(c => c.Id, _ => Guid.NewGuid())
-            .RuleFor(c => c.Name, f => f.PickRandom(categoryNames))
-            .RuleFor(c => c.Description, f => f.Lorem.Sentence());
-
-        var categories = categoryFaker.Generate(7);
-        context.Categories.AddRange(categories);
+        // Xóa SẠCH dữ liệu rác cũ để tránh dính Foreign Key
+        context.InventoryTransactions.RemoveRange(context.InventoryTransactions);
+        context.Inventories.RemoveRange(context.Inventories);
+        context.IssueDetails.RemoveRange(context.IssueDetails);
+        context.Issues.RemoveRange(context.Issues);
+        context.ReceiptDetails.RemoveRange(context.ReceiptDetails);
+        context.Receipts.RemoveRange(context.Receipts);
+        context.Products.RemoveRange(context.Products);
+        context.Categories.RemoveRange(context.Categories);
         await context.SaveChangesAsync();
 
-        var productFaker = new Faker<Product>()
-            .RuleFor(p => p.Id, _ => Guid.NewGuid())
-            .RuleFor(p => p.Name, f => f.PickRandom(productNames) + " " + f.Random.AlphaNumeric(3).ToUpper())
-            .RuleFor(p => p.SKU, f => "SKU" + f.Commerce.Ean8())
-            .RuleFor(p => p.Barcode, f => f.Commerce.Ean13())
-            .RuleFor(p => p.Price, f => Math.Round((decimal)(f.Random.Number(150, 20000) * 100), 2))
-            .RuleFor(p => p.CategoryId, f => f.PickRandom(categories).Id);
+        // 1. Tạo Danh Mục (Categories)
+        var categoriesDict = new Dictionary<string, Category>
+        {
+            { "Phone", new Category { Id = Guid.NewGuid(), Name = "Điện thoại & Tablet", Description = "Thiết bị di động thông minh" } },
+            { "Laptop", new Category { Id = Guid.NewGuid(), Name = "Laptop & PC", Description = "Máy tính xách tay và máy bộ" } },
+            { "Accessories", new Category { Id = Guid.NewGuid(), Name = "Phụ kiện", Description = "Cáp, sạc, ốp lưng, giá đỡ" } },
+            { "Audio", new Category { Id = Guid.NewGuid(), Name = "Thiết bị âm thanh", Description = "Tai nghe, loa bluetooth" } },
+            { "Peripherals", new Category { Id = Guid.NewGuid(), Name = "Linh kiện & Phụ kiện PC", Description = "Chuột, bàn phím, màn hình, ổ cứng" } },
+            { "SmartHome", new Category { Id = Guid.NewGuid(), Name = "Smart Home & Mạng", Description = "Camera, Router Wifi, thiết bị thông minh" } }
+        };
 
-        var products = productFaker.Generate(100);
+        context.Categories.AddRange(categoriesDict.Values);
+        await context.SaveChangesAsync();
+
+        // 2. Danh sách Sản Phẩm Đồ Điện Tử Thực Tế
+        var products = new List<Product>
+        {
+            // Điện thoại & Tablet
+            new Product { Id = Guid.NewGuid(), Name = "iPhone 15 Pro Max 256GB Titan", SKU = "IP15PM-256-TI", Barcode = "8801234567890", Price = 29500000m, CategoryId = categoriesDict["Phone"].Id },
+            { new Product { Id = Guid.NewGuid(), Name = "Samsung Galaxy S24 Ultra 512GB", SKU = "SS-S24U-512", Barcode = "8809876543210", Price = 31990000m, CategoryId = categoriesDict["Phone"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "iPad Pro M4 11-inch Wifi 256GB", SKU = "IPAD-M4-11-256", Barcode = "8801122334455", Price = 25990000m, CategoryId = categoriesDict["Phone"].Id } },
+            
+            // Laptop
+            { new Product { Id = Guid.NewGuid(), Name = "MacBook Pro 14 M3 Pro 18GB/512GB", SKU = "MAC-14-M3P", Barcode = "8805566778899", Price = 48500000m, CategoryId = categoriesDict["Laptop"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Laptop Dell XPS 15 9530 Core i7", SKU = "DELL-XPS9530", Barcode = "8809988776655", Price = 42000000m, CategoryId = categoriesDict["Laptop"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Laptop ASUS ROG Zephyrus G14", SKU = "ASUS-ROG-G14", Barcode = "8804433221100", Price = 38990000m, CategoryId = categoriesDict["Laptop"].Id } },
+
+            // Phụ kiện (Cáp, sạc)
+            { new Product { Id = Guid.NewGuid(), Name = "Củ sạc nhanh Anker Nano II 65W", SKU = "ANKER-NANO-65W", Barcode = "8801020304050", Price = 850000m, CategoryId = categoriesDict["Accessories"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Cáp bọc dù Baseus Type-C to Type-C 100W 2m", SKU = "BASEUS-C2C-100W", Barcode = "8806070809010", Price = 150000m, CategoryId = categoriesDict["Accessories"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Sạc dự phòng Ugreen 20000mAh 130W", SKU = "UGREEN-PB-20K", Barcode = "8801212121212", Price = 1250000m, CategoryId = categoriesDict["Accessories"].Id } },
+
+            // Âm thanh
+            { new Product { Id = Guid.NewGuid(), Name = "Tai nghe Bluetooth Sony WH-1000XM5", SKU = "SONY-WH1000XM5", Barcode = "8803434343434", Price = 7490000m, CategoryId = categoriesDict["Audio"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "AirPods Pro (Gen 2) USB-C", SKU = "AIRPODS-PRO2-C", Barcode = "8805656565656", Price = 5890000m, CategoryId = categoriesDict["Audio"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Loa Bluetooth Marshall Emberton II", SKU = "MARSHALL-EMB2", Barcode = "8807878787878", Price = 3990000m, CategoryId = categoriesDict["Audio"].Id } },
+
+            // Linh kiện & Phụ kiện PC
+            { new Product { Id = Guid.NewGuid(), Name = "Màn hình Dell UltraSharp U2723QE 27inch 4K", SKU = "DELL-U2723QE", Barcode = "8809090909090", Price = 12500000m, CategoryId = categoriesDict["Peripherals"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Bàn phím cơ Keychron K2 Pro", SKU = "KEYCHRON-K2P", Barcode = "8802323232323", Price = 2350000m, CategoryId = categoriesDict["Peripherals"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Chuột không dây Logitech MX Master 3S", SKU = "LOGI-MXM3S", Barcode = "8804545454545", Price = 2590000m, CategoryId = categoriesDict["Peripherals"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Ổ cứng SSD Samsung 990 Pro 1TB PCIe 4.0", SKU = "SS-990PRO-1TB", Barcode = "8806767676767", Price = 2850000m, CategoryId = categoriesDict["Peripherals"].Id } },
+
+            // Smart Home & Mạng
+            { new Product { Id = Guid.NewGuid(), Name = "Router Wifi 6 Asus RT-AX55", SKU = "ASUS-RTAX55", Barcode = "8808989898989", Price = 1350000m, CategoryId = categoriesDict["SmartHome"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Camera an ninh thông minh Ezviz C6N 1080p", SKU = "EZVIZ-C6N", Barcode = "8801010101010", Price = 450000m, CategoryId = categoriesDict["SmartHome"].Id } },
+            { new Product { Id = Guid.NewGuid(), Name = "Ổ cắm điện thông minh Xiaomi Smart Plug", SKU = "XIAOMI-PLUG", Barcode = "8802020202020", Price = 250000m, CategoryId = categoriesDict["SmartHome"].Id } }
+        };
+
         context.Products.AddRange(products);
         await context.SaveChangesAsync();
     }

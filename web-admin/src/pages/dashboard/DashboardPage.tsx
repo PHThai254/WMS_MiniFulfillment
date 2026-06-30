@@ -14,8 +14,10 @@ import { BaseTable } from '../../components/common/BaseTable';
 import { analyticsService } from '../../services/operationServices';
 import type { IDashboardKpi, ILowStockProduct, IStockMovement } from '../../types/domain';
 import { message } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 export const DashboardPage: React.FC = () => {
+    const navigate = useNavigate();
     const [kpi, setKpi] = useState<IDashboardKpi | null>(null);
     const [lowStock, setLowStock] = useState<ILowStockProduct[]>([]);
     const [movements, setMovements] = useState<IStockMovement[]>([]);
@@ -74,22 +76,32 @@ export const DashboardPage: React.FC = () => {
             {/* KPI Cards - AntD Statistic */}
             <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card 
+                        hoverable 
+                        onClick={() => navigate('/receipts')}
+                        style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+                        bodyStyle={{ padding: 24 }}
+                    >
                         <Statistic
-                            title="Phiếu Nhập đang chờ"
+                            title={<span style={{ color: '#1677ff', fontWeight: 500 }}>Phiếu Nhập đang chờ →</span>}
                             value={kpi?.pendingReceipts ?? 0}
                             prefix={<InboxOutlined />}
-                            valueStyle={{ color: '#1677ff' }}
+                            valueStyle={{ color: '#1677ff', fontWeight: 'bold' }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card 
+                        hoverable 
+                        onClick={() => navigate('/issues')}
+                        style={{ cursor: 'pointer', transition: 'all 0.3s' }}
+                        bodyStyle={{ padding: 24 }}
+                    >
                         <Statistic
-                            title="Lệnh Xuất đang xử lý"
+                            title={<span style={{ color: '#52c41a', fontWeight: 500 }}>Lệnh Xuất đang xử lý →</span>}
                             value={kpi?.activeIssues ?? 0}
                             prefix={<ExportOutlined />}
-                            valueStyle={{ color: '#52c41a' }}
+                            valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
                         />
                     </Card>
                 </Col>

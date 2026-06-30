@@ -78,10 +78,10 @@ export const ReceiptsPage: React.FC = () => {
     useEffect(() => {
         fetchReceipts();
         Promise.all([
-            warehouseService.list(),
+            warehouseService.list(true),
             supplierService.list(),
-            productService.list(),
-            zoneService.list(),
+            productService.list(undefined, undefined),
+            zoneService.list(undefined, true),
         ]).then(([wRes, sRes, pRes, zRes]) => {
             if (wRes?.success) setWarehouses(wRes.data || []);
             if (sRes?.success) setSuppliers(sRes.data || []);

@@ -23,7 +23,7 @@ export const ZonesPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [zRes, wRes] = await Promise.all([zoneService.list(filterWarehouse), warehouseService.list()]);
+            const [zRes, wRes] = await Promise.all([zoneService.list(filterWarehouse, true), warehouseService.list(true)]);
             if (zRes?.success) setZones(zRes.data || []);
             if (wRes?.success) setWarehouses(wRes.data || []);
         } catch { message.error('Không thể tải danh sách zone.'); }

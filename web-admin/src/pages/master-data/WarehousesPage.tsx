@@ -19,7 +19,7 @@ export const WarehousesPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await warehouseService.list();
+            const res = await warehouseService.list(true);
             if (res?.success) setWarehouses(res.data || []);
         } catch { message.error('Không thể tải danh sách kho.'); }
         finally { setLoading(false); }

@@ -32,7 +32,7 @@ export const UsersPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [uRes, rRes, wRes] = await Promise.all([userService.list(), userService.getRoles(), warehouseService.list()]);
+            const [uRes, rRes, wRes] = await Promise.all([userService.list(), userService.getRoles(), warehouseService.list(true)]);
             if (uRes?.success) setUsers(uRes.data || []);
             if (rRes?.success) setRoles(rRes.data || []);
             if (wRes?.success) setWarehouses(wRes.data || []);

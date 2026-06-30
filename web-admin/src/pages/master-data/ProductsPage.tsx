@@ -28,7 +28,7 @@ export const ProductsPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [pRes, cRes] = await Promise.all([productService.list(search, filterCategory), categoryService.list()]);
+            const [pRes, cRes] = await Promise.all([productService.list(search, filterCategory), categoryService.list(true)]);
             if (pRes?.success) setProducts(pRes.data || []);
             if (cRes?.success) setCategories(cRes.data || []);
         } catch { message.error('Không thể tải sản phẩm.'); }

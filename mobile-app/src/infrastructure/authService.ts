@@ -21,7 +21,7 @@ export const login = async (
       Password: password,
     });
 
-    if (!response.data?.succeeded) {
+    if (!response.data?.success) {
       throw new Error(response.data?.message || 'Đăng nhập thất bại');
     }
 

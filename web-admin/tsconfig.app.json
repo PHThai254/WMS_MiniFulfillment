@@ -26,7 +26,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     /* Linting */
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
